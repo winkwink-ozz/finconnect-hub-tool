@@ -7,3 +7,4 @@ export default defineConfig({
   // ⚠️ CRITICAL: This must match your Repository Name exactly!
   base: '/finconnect-hub-tool/', 
 })
+ 
