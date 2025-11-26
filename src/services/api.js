@@ -4,12 +4,12 @@ import axios from 'axios';
 const API_URL = 'https://script.google.com/macros/s/AKfycbx74tEsxqCNcg78-mgEkPUdXBo8BluJ9GrsLoakNVKavsrMCUxDRp9kTYgYDWWZaa3L/exec';
 
 export const api = {
-  // 1. Initialize Merchant (Create Folder + Merchant Row)
+  // 1. Initialize Merchant
   initMerchant: async (companyData) => {
     return await postRequest('INIT_MERCHANT', companyData);
   },
 
-  // 2. Save Officer (Director/Shareholder)
+  // 2. Save Officer
   saveOfficer: async (officerData) => {
     return await postRequest('SAVE_OFFICER', officerData);
   },
@@ -21,7 +21,6 @@ export const api = {
 
   // 4. Audit Log
   logAudit: async (action, merchantId, details) => {
-    // Fire and forget (don't await)
     postRequest('LOG_AUDIT', { 
       user_action: action, 
       target_merchant_id: merchantId, 
@@ -30,7 +29,6 @@ export const api = {
   }
 };
 
-// Helper function to handle GAS CORS behavior
 async function postRequest(action, payload) {
   try {
     const response = await axios.post(API_URL, JSON.stringify({
