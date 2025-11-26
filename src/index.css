@@ -1,15 +1,14 @@
-src/index.@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  background-color: #0f0f0f; /* Obsidian 900 */
+  background-color: #0f0f0f;
   color: #f3f4f6;
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
 }
 
-/* Custom Scrollbar for Premium Feel */
 ::-webkit-scrollbar {
   width: 8px;
 }
