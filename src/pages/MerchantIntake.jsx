@@ -265,3 +265,4 @@ const Input = ({ label, value, onChange }) => (
 );
 
 export default MerchantIntake;
+
