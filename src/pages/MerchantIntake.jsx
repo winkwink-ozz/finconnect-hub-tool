@@ -6,7 +6,7 @@ import { runOCR } from '../utils/ocr';
 
 const MerchantIntake = () => {
   // --- STATE MANAGEMENT ---
-  const [step, setStep] = useState(1); // 1 = Company, 2 = Officers
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   
@@ -21,48 +21,37 @@ const MerchantIntake = () => {
     incorporation_date: '',
     country: '',
     registered_address: '',
-    folder_url: '' // Will be filled by API response
+    folder_url: '' 
   });
 
-  // Data State: Officers (Dynamic Array)
+  // Data State: Officers
   const [officers, setOfficers] = useState([
     { id: 1, full_name: '', role: 'Director', dob: '', passport_number: '', residential_address: '' }
   ]);
 
-  // --- INTELLIGENT PARSERS (The "Brain") ---
+  // --- INTELLIGENT PARSERS ---
 
   const parseCompanyText = (text) => {
-    // 1. Clean up text
     const cleanLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    
-    let extracted = { ...company }; // Start with current state
+    let extracted = { ...company };
 
-    // STRATEGY A: Find Company Name via "LIMITED" / "LTD"
-    // Filter out lines that are likely not the name (e.g., "Private Limited Company")
+    // Name: Look for LIMITED/LTD
     const nameLine = cleanLines.find(line => 
       (line.toUpperCase().includes("LIMITED") || line.toUpperCase().includes("LTD")) && 
       !line.toUpperCase().includes("PRIVATE COMPANY") && 
-      line.length < 100 // Avoid capturing long paragraph text
+      line.length < 100 
     );
     if (nameLine) extracted.company_name = nameLine.replace(/[^a-zA-Z0-9\s\.\-]/g, '').trim();
 
-    // STRATEGY B: Find Reg Number
-    // 1. Specific Jurisdictions (Cyprus HE, UK SC/OC)
-    const heMatch = text.match(/\b(HE\s?\d{5,8})\b/i); // Cyprus
-    const ukMatch = text.match(/\b(SC\d{6}|OC\d{6})\b/i); // UK prefixes
-    
-    // 2. Generic 6-10 digits (Standalone)
+    // Reg Number: Cyprus HE or Generic 6-10 digits
+    const heMatch = text.match(/\b(HE\s?\d{5,8})\b/i); 
     const genericMatch = text.match(/\b(?<!\d)(\d{6,10})(?!\d)\b/);
 
-    if (heMatch) extracted.registration_number = heMatch[0].replace(/\s/g, ''); // Remove spaces in HE 123
-    else if (ukMatch) extracted.registration_number = ukMatch[0];
+    if (heMatch) extracted.registration_number = heMatch[0].replace(/\s/g, ''); 
     else if (genericMatch) extracted.registration_number = genericMatch[0];
 
-    // STRATEGY C: Dates
-    // 1. Standard: DD/MM/YYYY or DD-MMM-YYYY
+    // Dates
     const stdDate = text.match(/(\d{1,2}[\/\-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{1,2})[\/\-\s]\d{4})/i);
-    
-    // 2. Verbose: "Given under my hand this 14th day of September, 2023"
     const verboseDate = text.match(/(\d{1,2})(?:st|nd|rd|th)?\s+day\s+of\s+([A-Z][a-z]+)[,\s]+(\d{4})/i);
 
     if (verboseDate) {
@@ -71,10 +60,10 @@ const MerchantIntake = () => {
         extracted.incorporation_date = stdDate[0];
     }
 
-    // STRATEGY D: Country Guessing
+    // Country
     if (text.match(/HE\s?\d+/i) || text.match(/Cyprus/i)) extracted.country = "Cyprus";
     else if (text.match(/Hong Kong|HK/i)) extracted.country = "Hong Kong";
-    else if (text.match(/United Kingdom|England|Wales|Companies House/i)) extracted.country = "United Kingdom";
+    else if (text.match(/United Kingdom|England|Wales/i)) extracted.country = "United Kingdom";
 
     return extracted;
   };
@@ -82,20 +71,18 @@ const MerchantIntake = () => {
   const parseOfficerText = (text, currentOfficer) => {
     let extracted = { ...currentOfficer };
 
-    // STRATEGY A: MRZ Parsing (Passport Machine Readable Zone)
-    // Look for lines starting with P< or I<
+    // MRZ Parsing
     const mrzLine = text.match(/P<([A-Z]{3})([A-Z0-9<]+)/);
     
-    // STRATEGY B: Date of Birth Labels
+    // DOB
     const dobMatch = text.match(/(?:Date of Birth|DOB|Birth)[:\s\.]+(\d{1,2}[\/\-\s]\w+[\/\-\s]\d{4}|\d{6})/i);
     if (dobMatch) extracted.dob = dobMatch[1];
     else {
-        // Fallback: Just find a date that isn't today
         const anyDate = text.match(/(\d{2}[/-]\d{2}[/-]\d{4})/);
         if (anyDate) extracted.dob = anyDate[0];
     }
 
-    // STRATEGY C: Passport Number (Generic 9 char alphanumeric)
+    // Passport No
     if (!extracted.passport_number) {
         const passMatch = text.match(/\b([A-Z][0-9]{8})\b/);
         if (passMatch) extracted.passport_number = passMatch[0];
@@ -110,17 +97,16 @@ const MerchantIntake = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // 🛑 VALIDATION: Block PDFs for V1
     if (file.type === 'application/pdf') {
       alert("⚠️ System Limitation (V1)\n\nPlease upload a JPG or PNG image of the document.\nPDF processing is disabled in the free version.");
       return;
     }
 
     setLoading(true);
-    setRawText(''); // Clear previous debug text
+    setRawText(''); 
     try {
       const { text } = await runOCR(file, setOcrProgress);
-      setRawText(text); // Store for Debug View
+      setRawText(text); // Store raw text
       
       const smartData = parseCompanyText(text);
       setCompany(prev => ({ ...prev, ...smartData }));
@@ -150,7 +136,6 @@ const MerchantIntake = () => {
 
       const currentOfficer = officers.find(o => o.id === id);
       const smartData = parseOfficerText(text, currentOfficer);
-
       setOfficers(officers.map(o => o.id === id ? smartData : o));
       
     } catch (err) {
@@ -370,7 +355,6 @@ const MerchantIntake = () => {
   );
 };
 
-// Reusable Input Component
 const Input = ({ label, value, onChange }) => (
   <div>
     <label className="block text-xs font-medium text-gray-400 mb-1">{label}</label>
