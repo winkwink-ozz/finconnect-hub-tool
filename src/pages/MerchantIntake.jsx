@@ -140,6 +140,11 @@ const MerchantIntake = () => {
       const res = await api.initMerchant(company);
       if (res.status === 'success') {
         setCompany(prev => ({ ...prev, merchant_id: res.data.merchant_id, folder_url: res.data.folder_url }));
+        
+        // 🧹 CLEAR DEBUG DATA ON STEP CHANGE
+        setDebugData(null);
+        setLocalData(null);
+        
         setStep(2); 
         showToast("Entity Details Saved", "success");
       }
@@ -224,7 +229,6 @@ const MerchantIntake = () => {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-8">
             <div className="bg-obsidian-800 p-6 md:p-8 rounded-2xl border border-gray-700 shadow-xl">
                
-               {/* 🔧 FIXED: Responsive Flex Header (No Overlap) */}
                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                   <h3 className="text-xl font-semibold flex items-center gap-3 text-white">
                       <div className="p-2 bg-gold-500/10 rounded-lg"><Upload className="text-gold-400" size={20} /></div>
