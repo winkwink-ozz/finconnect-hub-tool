@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion'; // Animation Library
+import { motion } from 'framer-motion';
 import { api } from '../services/api';
 
 const MerchantIntake = () => {
   // --- STATE ---
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false); // Specific state for AI Loading
+  const [analyzing, setAnalyzing] = useState(false);
   
   const [company, setCompany] = useState({
     company_name: '', registration_number: '', incorporation_date: '',
     country: '', registered_address: '', 
-    file_id: '', folder_url: '' // To track the saved file
+    file_id: '', folder_url: '' 
   });
 
   const [officers, setOfficers] = useState([
@@ -27,7 +27,6 @@ const MerchantIntake = () => {
     setAnalyzing(true);
     
     try {
-      // Call Backend (Gemini + Drive Save)
       const result = await api.analyzeDocument(file);
       const data = result.analysis;
       const fileId = result.file_id;
@@ -35,7 +34,7 @@ const MerchantIntake = () => {
       if (type === 'COMPANY') {
         setCompany(prev => ({
           ...prev,
-          file_id: fileId, // Store ID to move it later
+          file_id: fileId,
           company_name: data.company_name || prev.company_name,
           registration_number: data.registration_number || prev.registration_number,
           incorporation_date: data.incorporation_date || prev.incorporation_date,
@@ -63,7 +62,6 @@ const MerchantIntake = () => {
     if (!company.company_name) return alert("Company Name is required");
     setLoading(true);
     try {
-      // Send data + file_id so backend can move file to new folder
       const res = await api.initMerchant(company);
       if (res.status === 'success') {
         setCompany(prev => ({ 
@@ -87,7 +85,7 @@ const MerchantIntake = () => {
         api.saveOfficer({
           ...officer,
           merchant_id: company.merchant_id,
-          merchant_folder_url: company.folder_url // Pass folder to move ID image
+          merchant_folder_url: company.folder_url 
         })
       );
       await Promise.all(promises);
@@ -114,16 +112,17 @@ const MerchantIntake = () => {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8 }}
-            className="relative w-16 h-16 flex items-center justify-center bg-obsidian-800 rounded-2xl shadow-2xl border border-gold-500/20"
+            className="relative w-16 h-16 flex items-center justify-center bg-white rounded-2xl shadow-2xl border border-gold-500/50"
           >
-            {/* Pulsing Glow Effect */}
+            {/* The Logo Image */}
+            <img src="/finconnect-hub-tool/logo.png" alt="Logo" className="w-10 h-10 object-contain z-10" />
+            
+            {/* Pulsing Gold Glow Behind */}
             <motion.div 
-              animate={{ boxShadow: ["0 0 0px #D4AF37", "0 0 20px #D4AF37", "0 0 0px #D4AF37"] }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="absolute inset-0 rounded-2xl"
+              animate={{ opacity: [0.5, 0.8, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="absolute inset-0 bg-gold-400/20 rounded-2xl blur-lg -z-10"
             />
-            {/* The Logo Image (Assumes logo.png is in public folder) */}
-            <img src="./logo.png" alt="Logo" className="w-10 h-10 object-contain z-10" />
           </motion.div>
 
           <div>
@@ -146,9 +145,10 @@ const MerchantIntake = () => {
           <motion.div 
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="mb-6"
+            className="mb-6 relative"
           >
-            <Cpu size={64} className="text-gold-400" />
+            <div className="absolute inset-0 bg-gold-500/20 blur-xl rounded-full"></div>
+            <Cpu size={64} className="text-gold-400 relative z-10" />
           </motion.div>
           <h2 className="text-2xl font-bold text-white mb-2">Gemini AI is Analyzing...</h2>
           <p className="text-gray-400">Extracting data & Securing file to Vault</p>
@@ -180,19 +180,19 @@ const MerchantIntake = () => {
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <Upload className="w-10 h-10 mb-3 text-gray-500 group-hover:text-gold-400 transition-colors" />
                   <p className="mb-2 text-sm text-gray-400"><span className="font-semibold text-white">Click to upload</span> Certificate of Inc.</p>
-                  <p className="text-xs text-gray-500">JPG, PNG (PDF Supported via AI)</p>
+                  <p className="text-xs text-gray-500">JPG, PNG, PDF (AI Supported)</p>
                 </div>
                 <input 
                   type="file" 
                   className="hidden" 
-                  accept="image/*"
+                  accept="image/*,application/pdf"
                   onChange={(e) => handleAnalysis(e.target.files[0], 'COMPANY')} 
                 />
              </label>
 
              {company.file_id && (
                 <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2 text-green-400 text-sm">
-                  <CheckCircle size={16} /> File secured in Vault (ID: ...{company.file_id.slice(-6)})
+                  <CheckCircle size={16} /> File secured in Vault
                 </div>
              )}
           </div>
@@ -254,7 +254,7 @@ const MerchantIntake = () => {
                       <input 
                         type="file" 
                         className="hidden" 
-                        accept="image/*"
+                        accept="image/*,application/pdf"
                         onChange={(e) => handleAnalysis(e.target.files[0], 'OFFICER', officer.id)} 
                       />
                    </label>
