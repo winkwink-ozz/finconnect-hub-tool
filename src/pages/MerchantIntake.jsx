@@ -15,7 +15,7 @@ const MerchantIntake = () => {
   const [localData, setLocalData] = useState(null); 
   
   // 🔔 TOAST STATE
-  const [toast, setToast] = useState({ show: false, message: '', type: 'info' }); // type: 'error' | 'success' | 'info'
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' }); 
 
   const [docType, setDocType] = useState(""); 
   const [company, setCompany] = useState({
@@ -31,7 +31,6 @@ const MerchantIntake = () => {
   // --- HELPERS ---
   const showToast = (message, type = 'error') => {
     setToast({ show: true, message, type });
-    // Auto hide after 4 seconds
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
   };
 
@@ -124,7 +123,6 @@ const MerchantIntake = () => {
   };
 
   const saveCompanyStep = async () => {
-    // Strict Validation
     const missing = [];
     if (!company.company_name) missing.push("Company Name");
     if (!company.registration_number) missing.push("Registration Number");
@@ -150,7 +148,6 @@ const MerchantIntake = () => {
   };
 
   const submitAll = async () => {
-    // Validate Officers
     for (let i = 0; i < officers.length; i++) {
       const o = officers[i];
       if (!o.full_name || !o.role || !o.passport_number || !o.dob || !o.residential_address) {
@@ -166,7 +163,7 @@ const MerchantIntake = () => {
       api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Submitted with ${officers.length} officers`);
       
       showToast("Onboarding Complete! Redirecting...", "success");
-      setTimeout(() => window.location.href = "/", 2000); // Delay redirect to show toast
+      setTimeout(() => window.location.href = "/", 2000); 
     } catch (err) { showToast("Submission Error: " + err.message, "error"); } 
     finally { setLoading(false); }
   };
@@ -225,16 +222,22 @@ const MerchantIntake = () => {
       {step === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-8">
-            <div className="bg-obsidian-800 p-8 rounded-2xl border border-gray-700 shadow-xl relative">
-               <div className="absolute top-6 right-6">
-                  <button onClick={() => setShowDebug(!showDebug)} className="flex items-center gap-2 text-xs text-gold-400 hover:text-white transition-colors border border-gold-500/30 px-3 py-1.5 rounded-full">
+            <div className="bg-obsidian-800 p-6 md:p-8 rounded-2xl border border-gray-700 shadow-xl">
+               
+               {/* 🔧 FIXED: Responsive Flex Header (No Overlap) */}
+               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                  <h3 className="text-xl font-semibold flex items-center gap-3 text-white">
+                      <div className="p-2 bg-gold-500/10 rounded-lg"><Upload className="text-gold-400" size={20} /></div>
+                      Upload Corporate Documents
+                  </h3>
+                  
+                  <button 
+                    onClick={() => setShowDebug(!showDebug)} 
+                    className="flex items-center gap-2 text-xs text-gold-400 hover:text-white transition-colors border border-gold-500/30 px-3 py-1.5 rounded-full self-end md:self-auto"
+                  >
                     {showDebug ? <EyeOff size={14}/> : <Eye size={14}/>} {showDebug ? 'Hide Analysis' : 'View AI Analysis'}
                   </button>
                </div>
-               <h3 className="text-xl font-semibold mb-6 flex items-center gap-3 text-white">
-                  <div className="p-2 bg-gold-500/10 rounded-lg"><Upload className="text-gold-400" size={20} /></div>
-                  Upload Corporate Documents
-               </h3>
                
                <div className="mb-6">
                  <label className="block text-sm text-gray-400 mb-2">Select Missing Information Source:</label>
@@ -342,7 +345,7 @@ const MerchantIntake = () => {
                         <div className="col-span-1">
                            <label className="block text-xs font-medium text-gray-400 mb-2">Upload Evidence:</label>
                            
-                           {/* 🎨 UI FIX: Black Dropdown Background */}
+                           {/* 🎨 UI FIX: Black Dropdown Background & White Text */}
                            <select 
                              value={officer.doc_type}
                              onChange={(e) => setOfficers(officers.map(o => o.id === officer.id ? { ...o, doc_type: e.target.value } : o))}
