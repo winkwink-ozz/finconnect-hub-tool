@@ -12,7 +12,7 @@ const MerchantIntake = () => {
   
   // Debug State
   const [showDebug, setShowDebug] = useState(false);
-  const [debugData, setDebugData] = useState(null); // Stores the AI JSON response
+  const [debugData, setDebugData] = useState(null); 
   
   const [company, setCompany] = useState({
     company_name: '', registration_number: '', incorporation_date: '',
@@ -21,7 +21,7 @@ const MerchantIntake = () => {
   });
 
   const [officers, setOfficers] = useState([
-    { id: 1, full_name: '', role: 'Director', dob: '', passport_number: '', residential_address: '', file_id: '' }
+    { id: 1, full_name: '', role: 'UBO (Ultimate Beneficiary Owner)', dob: '', passport_number: '', residential_address: '', file_id: '' }
   ]);
 
   // --- HANDLERS ---
@@ -29,15 +29,14 @@ const MerchantIntake = () => {
   const handleAnalysis = async (file, type, officerId = null) => {
     if (!file) return;
     setAnalyzing(true);
-    setDebugData(null); // Clear previous debug
+    setDebugData(null); 
     
     try {
       const result = await api.analyzeDocument(file);
       const data = result.analysis;
       const fileId = result.file_id;
 
-      // Store raw AI data for the Debug Panel
-      setDebugData(data);
+      setDebugData(data); // For Admin Debug Panel
 
       if (type === 'COMPANY') {
         setCompany(prev => ({
@@ -60,7 +59,7 @@ const MerchantIntake = () => {
       }
 
     } catch (err) {
-      alert("AI Analysis Failed: " + err.message);
+      alert("Extraction Failed: " + err.message);
     } finally {
       setAnalyzing(false);
     }
@@ -98,7 +97,7 @@ const MerchantIntake = () => {
       );
       await Promise.all(promises);
       api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Submitted with ${officers.length} officers`);
-      alert("Onboarding Complete! Files saved to Drive.");
+      alert("Onboarding Complete! Files saved.");
       window.location.href = "/"; 
     } catch (err) {
       alert("Error: " + err.message);
@@ -143,7 +142,8 @@ const MerchantIntake = () => {
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-6 relative">
             <Cpu size={64} className="text-gold-400 relative z-10" />
           </motion.div>
-          <h2 className="text-2xl font-bold text-white mb-2">Gemini AI is Analyzing...</h2>
+          {/* UPDATED TEXT HERE */}
+          <h2 className="text-2xl font-bold text-white mb-2">AI Extraction...</h2>
         </div>
       )}
 
@@ -181,12 +181,7 @@ const MerchantIntake = () => {
                   </div>
                   <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], 'COMPANY')} />
                </label>
-
-               {company.file_id && (
-                  <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2 text-green-400 text-sm">
-                    <CheckCircle size={16} /> File secured in Vault
-                  </div>
-               )}
+               {/* REMOVED VAULT TEXT HERE */}
             </div>
 
             <div className="space-y-5">
@@ -223,8 +218,6 @@ const MerchantIntake = () => {
                     ) : (
                       <div className="text-gray-500 italic">
                         Upload a document to see the raw AI extraction data here.
-                        <br/><br/>
-                        Gemini will output structured JSON identifying entities, dates, and jurisdictions automatically.
                       </div>
                     )}
                   </div>
@@ -241,7 +234,7 @@ const MerchantIntake = () => {
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-white">Directors & Shareholders</h2>
-            <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: 'Director', dob: '', passport_number: '', file_id: '' }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2 transition-colors">
+            <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: 'UBO (Ultimate Beneficiary Owner)', dob: '', passport_number: '', file_id: '' }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2 transition-colors">
               <Plus size={16} /> Add Person
             </button>
           </div>
@@ -262,11 +255,24 @@ const MerchantIntake = () => {
                       </div>
                       <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], 'OFFICER', officer.id)} />
                    </label>
-                   {officer.file_id && <p className="text-xs text-green-400 mt-2 flex items-center gap-1"><CheckCircle size={12}/> ID Secured</p>}
+                   {/* REMOVED VAULT TEXT HERE */}
                 </div>
                 <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input label="Full Name" value={officer.full_name} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, full_name: e.target.value } : o))} />
-                  <Input label="Role" value={officer.role} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, role: e.target.value } : o))} />
+                  
+                  {/* UPDATED ROLE DROPDOWN */}
+                  <Select 
+                    label="Role" 
+                    value={officer.role} 
+                    onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, role: e.target.value } : o))}
+                    options={[
+                      "UBO (Ultimate Beneficiary Owner)",
+                      "Shareholder",
+                      "Director",
+                      "Authorized Representative"
+                    ]}
+                  />
+
                   <Input label="Passport Number" value={officer.passport_number} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, passport_number: e.target.value } : o))} />
                   <Input label="Date of Birth" value={officer.dob} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, dob: e.target.value } : o))} />
                 </div>
@@ -285,10 +291,27 @@ const MerchantIntake = () => {
   );
 };
 
+// COMPONENT: Input
 const Input = ({ label, value, onChange }) => (
   <div className="w-full">
     <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">{label}</label>
     <input type="text" value={value || ''} onChange={onChange} className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:ring-1 focus:ring-gold-400 focus:outline-none transition-all" />
+  </div>
+);
+
+// COMPONENT: Select (New!)
+const Select = ({ label, value, onChange, options }) => (
+  <div className="w-full">
+    <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">{label}</label>
+    <select 
+      value={value} 
+      onChange={onChange} 
+      className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:ring-1 focus:ring-gold-400 focus:outline-none transition-all appearance-none cursor-pointer"
+    >
+      {options.map((opt, i) => (
+        <option key={i} value={opt} className="bg-obsidian-900">{opt}</option>
+      ))}
+    </select>
   </div>
 );
 
