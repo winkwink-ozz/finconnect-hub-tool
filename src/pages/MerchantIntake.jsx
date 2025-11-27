@@ -25,6 +25,19 @@ const MerchantIntake = () => {
     { id: 1, full_name: '', role: '', dob: '', passport_number: '', residential_address: '', doc_type: '', file_id: '' }
   ]);
 
+  // 🛠️ HELPER: Smartly unpacks data, whether it's { val: "..." } or just "..."
+  const getVal = (primary, secondary) => {
+    // 1. Check Primary (Gemini)
+    if (primary) {
+      if (typeof primary === 'object' && primary.val) return primary.val; // Unpack object
+      if (typeof primary === 'string') return primary; // Use string directly
+    }
+    // 2. Check Secondary (Tesseract)
+    if (secondary) return secondary;
+    
+    return ""; // Return empty string if both fail
+  };
+
   const handleAnalysis = async (file, category, context, officerId = null) => {
     if (!file) return;
     setAnalyzing(true);
@@ -32,42 +45,38 @@ const MerchantIntake = () => {
     setLocalData(null);
     
     try {
-      // 🚀 PARALLEL EXECUTION
       const geminiPromise = api.analyzeDocument(file, category);
       const tesseractPromise = runOCR(file).then(ocrResult => parseRawText(ocrResult.text, category));
 
       const [geminiResult, tesseractData] = await Promise.all([geminiPromise, tesseractPromise]);
       
       const aiData = geminiResult.analysis || {};
-      const rawDebug = geminiResult.raw_debug; // Get raw text for debug panel
       const fileId = geminiResult.file_id;
 
-      // Debug: Show structured data if available, otherwise show raw error text
-      setDebugData(Object.keys(aiData).length > 0 ? aiData : { raw_response: rawDebug });
+      setDebugData(aiData); 
       setLocalData(tesseractData); 
 
-      // 🧠 CONSENSUS LOGIC (Gemini > Tesseract > Existing)
+      // 🧠 MERGE LOGIC using getVal() to prevent [object Object]
       if (context === 'COMPANY') {
         setCompany(prev => ({
           ...prev,
           file_id: fileId,
-          company_name: aiData.company_name || tesseractData.company_name || prev.company_name,
-          registration_number: aiData.registration_number || tesseractData.registration_number || prev.registration_number,
-          incorporation_date: aiData.incorporation_date || tesseractData.incorporation_date || prev.incorporation_date,
-          // FIX: Explicitly check country or fallback
-          country: aiData.country || tesseractData.country || prev.country,
-          registered_address: aiData.registered_address || prev.registered_address,
-          operational_address: aiData.operational_address || prev.operational_address
+          company_name:        getVal(aiData.company_name, tesseractData.company_name) || prev.company_name,
+          registration_number: getVal(aiData.registration_number, tesseractData.registration_number) || prev.registration_number,
+          incorporation_date:  getVal(aiData.incorporation_date, tesseractData.incorporation_date) || prev.incorporation_date,
+          country:             getVal(aiData.country, tesseractData.country) || prev.country,
+          registered_address:  getVal(aiData.registered_address, tesseractData.registered_address) || prev.registered_address,
+          operational_address: getVal(aiData.operational_address, tesseractData.operational_address) || prev.operational_address
         }));
       } 
       else if (context === 'OFFICER') {
         setOfficers(prev => prev.map(o => o.id === officerId ? {
           ...o,
           file_id: fileId,
-          full_name: aiData.full_name || o.full_name,
-          dob: aiData.dob || tesseractData.dob || o.dob,
-          passport_number: aiData.passport_number || tesseractData.passport_number || o.passport_number,
-          residential_address: aiData.residential_address || o.residential_address
+          full_name:         getVal(aiData.full_name, o.full_name),
+          dob:               getVal(aiData.dob, tesseractData.dob) || o.dob,
+          passport_number:   getVal(aiData.passport_number, tesseractData.passport_number) || o.passport_number,
+          residential_address: getVal(aiData.residential_address, o.residential_address)
         } : o));
       }
 
@@ -130,7 +139,7 @@ const MerchantIntake = () => {
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-6 relative">
             <Cpu size={64} className="text-gold-400 relative z-10" />
           </motion.div>
-          <h2 className="text-2xl font-bold text-white mb-2">AI Extraction...</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Dual-Engine Extraction...</h2>
           <p className="text-xs text-gray-500">Processing with Gemini AI + Regex</p>
         </div>
       )}
@@ -216,7 +225,6 @@ const MerchantIntake = () => {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-white">Directors & Shareholders</h2>
               <div className="flex gap-4 items-center">
-                 {/* DEBUG BUTTON FOR STEP 2 */}
                  <button onClick={() => setShowDebug(!showDebug)} className="text-xs text-gold-400 border border-gold-500/30 px-3 py-1.5 rounded-full flex items-center gap-2">{showDebug ? <EyeOff size={12}/> : <Eye size={12}/>} Debug</button>
                  <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: '', dob: '', passport_number: '', doc_type: '', file_id: '' }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"><Plus size={16} /> Add Person</button>
               </div>
