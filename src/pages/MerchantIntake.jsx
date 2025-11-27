@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock, FileText, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock, FileText, User, X, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../services/api';
@@ -14,6 +14,9 @@ const MerchantIntake = () => {
   const [debugData, setDebugData] = useState(null); 
   const [localData, setLocalData] = useState(null); 
   
+  // 🔔 TOAST STATE
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' }); // type: 'error' | 'success' | 'info'
+
   const [docType, setDocType] = useState(""); 
   const [company, setCompany] = useState({
     company_name: '', registration_number: '', incorporation_date: '',
@@ -25,7 +28,13 @@ const MerchantIntake = () => {
     { id: 1, full_name: '', role: '', dob: '', passport_number: '', residential_address: '', doc_type: '', file_id: '' }
   ]);
 
-  // 🛠️ HELPER: Smartly unpacks data
+  // --- HELPERS ---
+  const showToast = (message, type = 'error') => {
+    setToast({ show: true, message, type });
+    // Auto hide after 4 seconds
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
+  };
+
   const getVal = (primary, secondary) => {
     if (primary) {
       if (typeof primary === 'object' && primary.val) return primary.val;
@@ -35,10 +44,8 @@ const MerchantIntake = () => {
     return "";
   };
 
-  // 🧠 LOGIC: Dynamic Document Filtering
   const getEntityDocOptions = () => {
     const options = [];
-    // Only show ID docs if ID fields are missing
     if (!company.company_name || !company.registration_number || !company.incorporation_date) {
       options.push({ val: "CERT_INC", label: "Certificate of Incorporation" });
     }
@@ -93,6 +100,7 @@ const MerchantIntake = () => {
           operational_address: getVal(aiData.operational_address, tesseractData.operational_address) || prev.operational_address
         }));
         setDocType(""); 
+        showToast("Data extracted successfully!", "success");
       } 
       else if (context === 'OFFICER') {
         setOfficers(prev => prev.map(o => o.id === officerId ? {
@@ -104,21 +112,28 @@ const MerchantIntake = () => {
           passport_number:   getVal(aiData.passport_number, tesseractData.passport_number) || o.passport_number,
           residential_address: getVal(aiData.residential_address, o.residential_address)
         } : o));
+        showToast("Officer data extracted!", "success");
       }
 
     } catch (err) {
       console.error(err);
-      alert("Analysis Partial Failure: " + err.message);
+      showToast("Analysis Failed: " + err.message, "error");
     } finally {
       setAnalyzing(false);
     }
   };
 
-  // 🔒 VALIDATION: Step 1 (Entity)
   const saveCompanyStep = async () => {
-    // Check all required fields
-    if (!company.company_name || !company.registration_number || !company.incorporation_date || !company.country || !company.registered_address) {
-      alert("⚠️ Incomplete Data\n\nPlease fill in all required fields marked with * (Company Name, Reg Number, Date, Country, Registered Address).");
+    // Strict Validation
+    const missing = [];
+    if (!company.company_name) missing.push("Company Name");
+    if (!company.registration_number) missing.push("Registration Number");
+    if (!company.incorporation_date) missing.push("Incorp. Date");
+    if (!company.country) missing.push("Country");
+    if (!company.registered_address) missing.push("Registered Address");
+
+    if (missing.length > 0) {
+      showToast(`Missing Fields: ${missing.join(', ')}`, "error");
       return;
     }
 
@@ -128,18 +143,18 @@ const MerchantIntake = () => {
       if (res.status === 'success') {
         setCompany(prev => ({ ...prev, merchant_id: res.data.merchant_id, folder_url: res.data.folder_url }));
         setStep(2); 
+        showToast("Entity Details Saved", "success");
       }
-    } catch (err) { alert("Save Failed: " + err.message); } 
+    } catch (err) { showToast("Save Failed: " + err.message, "error"); } 
     finally { setLoading(false); }
   };
 
-  // 🔒 VALIDATION: Step 2 (Officers)
   const submitAll = async () => {
-    // Check every officer for missing fields
+    // Validate Officers
     for (let i = 0; i < officers.length; i++) {
       const o = officers[i];
       if (!o.full_name || !o.role || !o.passport_number || !o.dob || !o.residential_address) {
-        alert(`⚠️ Incomplete Officer\n\nPlease fill in all details for Officer #${i + 1} (Name, Role, Passport No, DOB, Residential Address).`);
+        showToast(`Please complete all fields for Officer #${i + 1}`, "error");
         return;
       }
     }
@@ -149,15 +164,32 @@ const MerchantIntake = () => {
       const promises = officers.map(officer => api.saveOfficer({ ...officer, merchant_id: company.merchant_id, merchant_folder_url: company.folder_url }));
       await Promise.all(promises);
       api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Submitted with ${officers.length} officers`);
-      alert("✅ Onboarding Complete!\n\nAll data and files have been secured in the Vault.");
-      window.location.href = "/"; 
-    } catch (err) { alert("Error: " + err.message); } 
+      
+      showToast("Onboarding Complete! Redirecting...", "success");
+      setTimeout(() => window.location.href = "/", 2000); // Delay redirect to show toast
+    } catch (err) { showToast("Submission Error: " + err.message, "error"); } 
     finally { setLoading(false); }
   };
 
   return (
-    <div className="max-w-[1400px] mx-auto p-6 text-gray-100 pb-20 font-sans">
+    <div className="max-w-[1400px] mx-auto p-6 text-gray-100 pb-20 font-sans relative">
       
+      {/* 🔔 TOAST NOTIFICATION */}
+      <AnimatePresence>
+        {toast.show && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border ${toast.type === 'error' ? 'bg-red-900/90 border-red-500 text-red-100' : 'bg-green-900/90 border-green-500 text-green-100'} backdrop-blur-md`}
+          >
+            {toast.type === 'error' ? <AlertCircle size={24} /> : <CheckCircle size={24} />}
+            <span className="font-medium text-sm">{toast.message}</span>
+            <button onClick={() => setToast({ ...toast, show: false })} className="hover:opacity-75"><X size={18} /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* HEADER */}
       <div className="mb-8 border-b border-gray-800 pb-6 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-6">
@@ -183,7 +215,7 @@ const MerchantIntake = () => {
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-6 relative">
             <Cpu size={64} className="text-gold-400 relative z-10" />
           </motion.div>
-          <h2 className="text-2xl font-bold text-white mb-2">Dual-Engine Extraction...</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">AI Extraction...</h2>
           <p className="text-xs text-gray-500">Processing with Gemini AI + Regex</p>
         </div>
       )}
@@ -309,13 +341,17 @@ const MerchantIntake = () => {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-700/50">
                         <div className="col-span-1">
                            <label className="block text-xs font-medium text-gray-400 mb-2">Upload Evidence:</label>
+                           
+                           {/* 🎨 UI FIX: Black Dropdown Background */}
                            <select 
                              value={officer.doc_type}
                              onChange={(e) => setOfficers(officers.map(o => o.id === officer.id ? { ...o, doc_type: e.target.value } : o))}
-                             className="w-full bg-black/30 text-xs border border-gray-700 rounded mb-3 p-2 text-gray-300"
+                             className="w-full bg-obsidian-900 text-xs border border-gray-700 rounded mb-3 p-2 text-white focus:border-gold-400 outline-none cursor-pointer"
                            >
-                             <option value="">-- Select Document --</option>
-                             {getOfficerDocOptions(officer).map(opt => <option key={opt.val} value={opt.val}>{opt.label}</option>)}
+                             <option value="" className="bg-obsidian-900">-- Select Document --</option>
+                             {getOfficerDocOptions(officer).map(opt => (
+                               <option key={opt.val} value={opt.val} className="bg-obsidian-900">{opt.label}</option>
+                             ))}
                            </select>
 
                            {officer.doc_type && officer.doc_type !== "" ? (
