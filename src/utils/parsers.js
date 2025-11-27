@@ -1,6 +1,5 @@
 /**
  * TESSERACT REGEX PARSERS
- * The "Safety Net" for strict data patterns.
  */
 
 export const parseRawText = (text, docCategory) => {
@@ -17,8 +16,7 @@ export const parseRawText = (text, docCategory) => {
 const parseEntity = (text, lines) => {
   const extracted = {};
 
-  // 1. REGISTRATION NUMBER
-  // Cyprus HE, UK SC/OC, or generic 6-8 digits
+  // 1. REGISTRATION NUMBER (Cyprus HE, UK SC/OC, or generic 6-8 digits)
   const heMatch = text.match(/\b(HE\s?\d{5,8})\b/i);
   const ukMatch = text.match(/\b(SC\d{6}|OC\d{6})\b/i);
   const genericMatch = text.match(/\b(\d{6,8})\b/); 
@@ -27,15 +25,17 @@ const parseEntity = (text, lines) => {
   else if (ukMatch) extracted.registration_number = ukMatch[0];
   else if (genericMatch) extracted.registration_number = genericMatch[0];
 
-  // 2. DATES (DD/MM/YYYY)
-  const dateMatch = text.match(/(\d{2}[/-]\d{2}[/-]\d{4})/);
+  // 2. DATES (DD/MM/YYYY or DD-Month-YYYY)
+  const dateMatch = text.match(/(\d{1,2}[/-]\d{2}[/-]\d{4})/);
   if (dateMatch) extracted.incorporation_date = dateMatch[0];
 
-  // 3. COMPANY NAME (Heuristic: Uppercase + Suffix)
+  // 3. COMPANY NAME (Exclude Headers)
   const nameLine = lines.find(line => 
     /^[A-Z0-9\s\.]+$/.test(line) && 
     (line.includes("LIMITED") || line.includes("LTD") || line.includes("INC")) &&
-    !line.includes("CERTIFY")
+    !line.includes("CERTIFY") &&
+    !line.includes("CERTIFICATE") &&
+    !line.includes("INCORPORATION")
   );
   if (nameLine) extracted.company_name = nameLine;
 
@@ -51,7 +51,6 @@ const parsePassport = (text, lines) => {
     const parts = mrzLine.split('<').filter(p => p.length > 0);
     // Rough logic: Name is usually the 2nd part in P<Type<Name
     if (parts.length >= 2) {
-      // Very basic fallback if AI fails entirely
       extracted.passport_number = text.match(/[A-Z0-9]{9}/) ? text.match(/[A-Z0-9]{9}/)[0] : ""; 
     }
   }
