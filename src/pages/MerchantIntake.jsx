@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock, FileText } from 'lucide-react';
+import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock, FileText, ChevronDown, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../services/api';
@@ -25,18 +25,56 @@ const MerchantIntake = () => {
     { id: 1, full_name: '', role: '', dob: '', passport_number: '', residential_address: '', doc_type: '', file_id: '' }
   ]);
 
-  // 🛠️ HELPER: Smartly unpacks data, whether it's { val: "..." } or just "..."
+  // 🛠️ HELPER: Smartly unpacks data
   const getVal = (primary, secondary) => {
-    // 1. Check Primary (Gemini)
     if (primary) {
-      if (typeof primary === 'object' && primary.val) return primary.val; // Unpack object
-      if (typeof primary === 'string') return primary; // Use string directly
+      if (typeof primary === 'object' && primary.val) return primary.val;
+      if (typeof primary === 'string') return primary;
     }
-    // 2. Check Secondary (Tesseract)
     if (secondary) return secondary;
-    
-    return ""; // Return empty string if both fail
+    return "";
   };
+
+  // 🧠 LOGIC: Dynamic Document Filtering
+  const getEntityDocOptions = () => {
+    const options = [];
+    
+    // Logic: If Identity fields are missing, show Identity Docs
+    const needsIdentity = !company.company_name || !company.registration_number || !company.incorporation_date;
+    // Logic: If Address fields are missing, show Address Docs
+    const needsAddress = !company.registered_address || !company.operational_address;
+
+    if (needsIdentity) {
+      options.push({ val: "CERT_INC", label: "Certificate of Incorporation" });
+    }
+    // Incumbency usually has both
+    if (needsIdentity || needsAddress) {
+      options.push({ val: "CERT_INCUMBENCY", label: "Certificate of Incumbency" });
+    }
+    if (needsAddress) {
+      options.push({ val: "CERT_ADDRESS", label: "Certificate of Reg Address" });
+      options.push({ val: "ENTITY_UTILITY", label: "Company Utility Bill" });
+    }
+    
+    return options.length > 0 ? options : [{ val: "", label: "All Data Extracted! (Review below)" }];
+  };
+
+  const getOfficerDocOptions = (officer) => {
+    const options = [];
+    const needsIdentity = !officer.full_name || !officer.passport_number || !officer.dob;
+    const needsAddress = !officer.residential_address;
+
+    if (needsIdentity) {
+      options.push({ val: "PASSPORT_ID", label: "Passport / ID Card" });
+    }
+    if (needsAddress) {
+      options.push({ val: "PERSONAL_UTILITY", label: "Personal Utility Bill" });
+    }
+
+    return options.length > 0 ? options : [{ val: "", label: "All Data Extracted!" }];
+  };
+
+  // --- HANDLERS ---
 
   const handleAnalysis = async (file, category, context, officerId = null) => {
     if (!file) return;
@@ -56,7 +94,6 @@ const MerchantIntake = () => {
       setDebugData(aiData); 
       setLocalData(tesseractData); 
 
-      // 🧠 MERGE LOGIC using getVal() to prevent [object Object]
       if (context === 'COMPANY') {
         setCompany(prev => ({
           ...prev,
@@ -68,11 +105,14 @@ const MerchantIntake = () => {
           registered_address:  getVal(aiData.registered_address, tesseractData.registered_address) || prev.registered_address,
           operational_address: getVal(aiData.operational_address, tesseractData.operational_address) || prev.operational_address
         }));
+        // Reset dropdown to force user to re-evaluate what's needed
+        setDocType(""); 
       } 
       else if (context === 'OFFICER') {
         setOfficers(prev => prev.map(o => o.id === officerId ? {
           ...o,
           file_id: fileId,
+          doc_type: "", // Reset dropdown
           full_name:         getVal(aiData.full_name, o.full_name),
           dob:               getVal(aiData.dob, tesseractData.dob) || o.dob,
           passport_number:   getVal(aiData.passport_number, tesseractData.passport_number) || o.passport_number,
@@ -116,6 +156,7 @@ const MerchantIntake = () => {
   return (
     <div className="max-w-[1400px] mx-auto p-6 text-gray-100 pb-20 font-sans">
       
+      {/* HEADER */}
       <div className="mb-8 border-b border-gray-800 pb-6 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-6">
           <Link to="/">
@@ -145,7 +186,7 @@ const MerchantIntake = () => {
       )}
       {loading && !analyzing && <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"><Loader2 className="w-12 h-12 animate-spin text-gold-400" /></div>}
 
-      {/* STEP 1 */}
+      {/* STEP 1: ENTITY */}
       {step === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-8">
@@ -161,17 +202,21 @@ const MerchantIntake = () => {
                </h3>
                
                <div className="mb-6">
-                 <label className="block text-sm text-gray-400 mb-2">Select Document Type:</label>
-                 <select value={docType} onChange={(e) => setDocType(e.target.value)} className="w-full bg-obsidian-900 border border-gold-500/30 rounded-lg p-3 text-white focus:outline-none focus:border-gold-400">
+                 <label className="block text-sm text-gray-400 mb-2">Select Missing Information Source:</label>
+                 <select 
+                   value={docType}
+                   onChange={(e) => setDocType(e.target.value)}
+                   className="w-full bg-obsidian-900 border border-gold-500/30 rounded-lg p-3 text-white focus:outline-none focus:border-gold-400"
+                 >
                    <option value="">-- Choose Document --</option>
-                   <option value="CERT_INC">Certificate of Incorporation</option>
-                   <option value="CERT_INCUMBENCY">Certificate of Incumbency</option>
-                   <option value="CERT_ADDRESS">Certificate of Reg Address</option>
-                   <option value="ENTITY_UTILITY">Company Utility Bill</option>
+                   {/* 🧠 DYNAMIC OPTIONS: Only show what is needed */}
+                   {getEntityDocOptions().map(opt => (
+                     <option key={opt.val} value={opt.val}>{opt.label}</option>
+                   ))}
                  </select>
                </div>
 
-               {docType ? (
+               {docType && docType !== "" ? (
                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer hover:border-gold-400 hover:bg-gray-800/50 transition-all group">
                     <div className="flex flex-col items-center justify-center pt-2">
                       <Upload className="w-8 h-8 mb-2 text-gray-500 group-hover:text-gold-400 transition-colors" />
@@ -180,7 +225,9 @@ const MerchantIntake = () => {
                     <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], docType, 'COMPANY')} />
                  </label>
                ) : (
-                 <div className="h-32 border border-dashed border-gray-700 rounded-xl flex items-center justify-center bg-black/20 text-gray-500">Select doc type to upload</div>
+                 <div className="h-32 border border-dashed border-gray-700 rounded-xl flex items-center justify-center bg-black/20 text-gray-500">
+                   {getEntityDocOptions()[0].val === "" ? <span className="text-green-400 flex items-center gap-2"><CheckCircle size={16}/> Data Extracted</span> : "Select doc type to upload"}
+                 </div>
                )}
             </div>
 
@@ -218,7 +265,7 @@ const MerchantIntake = () => {
         </div>
       )}
 
-      {/* STEP 2 */}
+      {/* STEP 2: OFFICERS (Progressive UX) */}
       {step === 2 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2 space-y-6">
@@ -231,33 +278,80 @@ const MerchantIntake = () => {
             </div>
 
             {officers.map((officer, index) => (
-              <div key={officer.id} className="bg-obsidian-800 p-6 rounded-xl border border-gray-700 relative shadow-xl hover:border-gray-600 transition-colors">
+              <div key={officer.id} className="bg-obsidian-800 p-6 rounded-xl border border-gray-700 relative shadow-xl transition-all">
                 <div className="absolute top-4 right-4 text-gray-500 hover:text-red-400 cursor-pointer p-2" onClick={() => setOfficers(officers.filter(o => o.id !== officer.id))}><Trash2 size={18} /></div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="col-span-1">
-                     <h3 className="text-gold-400 font-medium mb-3 flex items-center gap-2"><Shield size={16} /> Officer #{index + 1}</h3>
-                     <select value={officer.doc_type} onChange={(e) => setOfficers(officers.map(o => o.id === officer.id ? { ...o, doc_type: e.target.value } : o))} className="w-full bg-black/30 text-xs border border-gray-700 rounded mb-2 p-1 text-gray-300">
-                       <option value="">Select Doc Type</option>
-                       <option value="PASSPORT_ID">Passport / ID Card</option>
-                       <option value="PERSONAL_UTILITY">Personal Utility Bill</option>
-                     </select>
-                     {officer.role && officer.doc_type ? (
-                       <label className="flex flex-col items-center justify-center h-32 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:bg-black/20 group">
-                          <div className="text-center group-hover:scale-105 transition-transform"><Upload className="mx-auto text-gold-400 mb-1" size={20} /><span className="text-xs text-gray-300 font-medium">Upload {officer.doc_type}</span></div>
-                          <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], officer.doc_type, 'OFFICER', officer.id)} />
-                       </label>
-                     ) : (
-                       <div className="h-32 border border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center bg-gray-900/50 opacity-60 cursor-not-allowed"><Lock className="text-gray-600 mb-2" size={20} /><span className="text-xs text-gray-500 text-center px-4">Select Role & Doc<br/>to unlock</span></div>
-                     )}
-                  </div>
-                  <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input label="Full Name" value={officer.full_name} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, full_name: e.target.value } : o))} />
-                    <Select label="Role" value={officer.role} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, role: e.target.value } : o))} options={["", "UBO (Ultimate Beneficiary Owner)", "Shareholder", "Director", "Authorized Representative"]} />
-                    <Input label="Passport/ID Number" value={officer.passport_number} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, passport_number: e.target.value } : o))} />
-                    <Input label="Date of Birth" value={officer.dob} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, dob: e.target.value } : o))} />
-                    <div className="md:col-span-2"><Input label="Residential Address" value={officer.residential_address} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, residential_address: e.target.value } : o))} /></div>
-                  </div>
+                
+                {/* HEADER ROW */}
+                <div className="flex items-center gap-3 mb-6">
+                   <div className="p-2 bg-gold-500/10 rounded-lg text-gold-400"><User size={20} /></div>
+                   <h3 className="text-lg font-medium text-white">Officer #{index + 1} Profile</h3>
                 </div>
+
+                {/* 🎨 PROGRESSIVE UX: Role Selection First */}
+                <div className="mb-6">
+                   <label className="block text-sm text-gray-400 mb-2">Role in Company <span className="text-red-500">*</span></label>
+                   <select 
+                      value={officer.role} 
+                      onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, role: e.target.value } : o))} 
+                      className={`w-full bg-obsidian-900 border rounded-lg p-3 text-white focus:outline-none focus:border-gold-400 appearance-none cursor-pointer transition-all ${!officer.role ? 'border-gold-500/50 shadow-[0_0_15px_rgba(212,175,55,0.15)] animate-pulse' : 'border-gray-700'}`}
+                   >
+                      <option value="">-- Select Role (Required to Start) --</option>
+                      <option value="UBO (Ultimate Beneficiary Owner)">UBO (Ultimate Beneficiary Owner)</option>
+                      <option value="Shareholder">Shareholder</option>
+                      <option value="Director">Director</option>
+                      <option value="Authorized Representative">Authorized Representative</option>
+                   </select>
+                </div>
+
+                {/* 🔒 EXPANDABLE SECTION (Only if Role Selected) */}
+                <AnimatePresence>
+                  {officer.role && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-700/50">
+                        {/* UPLOAD COLUMN */}
+                        <div className="col-span-1">
+                           <label className="block text-xs font-medium text-gray-400 mb-2">Upload Evidence:</label>
+                           <select 
+                             value={officer.doc_type}
+                             onChange={(e) => setOfficers(officers.map(o => o.id === officer.id ? { ...o, doc_type: e.target.value } : o))}
+                             className="w-full bg-black/30 text-xs border border-gray-700 rounded mb-3 p-2 text-gray-300"
+                           >
+                             <option value="">-- Select Document --</option>
+                             {/* 🧠 DYNAMIC OFFICER OPTIONS */}
+                             {getOfficerDocOptions(officer).map(opt => (
+                               <option key={opt.val} value={opt.val}>{opt.label}</option>
+                             ))}
+                           </select>
+
+                           {officer.doc_type && officer.doc_type !== "" ? (
+                             <label className="flex flex-col items-center justify-center h-32 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:bg-black/20 group">
+                                <div className="text-center group-hover:scale-105 transition-transform"><Upload className="mx-auto text-gold-400 mb-1" size={20} /><span className="text-xs text-gray-300 font-medium">Click to Upload</span></div>
+                                <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], officer.doc_type, 'OFFICER', officer.id)} />
+                             </label>
+                           ) : (
+                             <div className="h-32 border border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center bg-gray-900/50 text-gray-500 text-xs text-center p-2">
+                               {getOfficerDocOptions(officer)[0].val === "" ? <span className="text-green-400 flex items-center gap-1"><CheckCircle size={12}/> Complete</span> : "Select doc to upload"}
+                             </div>
+                           )}
+                        </div>
+
+                        {/* DATA INPUTS */}
+                        <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="md:col-span-2"><Input label="Full Name" value={officer.full_name} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, full_name: e.target.value } : o))} /></div>
+                          <Input label="Passport/ID Number" value={officer.passport_number} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, passport_number: e.target.value } : o))} />
+                          <Input label="Date of Birth" value={officer.dob} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, dob: e.target.value } : o))} />
+                          <div className="md:col-span-2"><Input label="Residential Address" value={officer.residential_address} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, residential_address: e.target.value } : o))} /></div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
               </div>
             ))}
             <div className="flex justify-end pt-6 border-t border-gray-800">
@@ -265,7 +359,7 @@ const MerchantIntake = () => {
             </div>
           </motion.div>
 
-          {/* RIGHT COLUMN: DEBUG PANEL STEP 2 */}
+          {/* RIGHT COLUMN: DEBUG PANEL */}
           <AnimatePresence>
             {showDebug && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="lg:col-span-1">
