@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson } from 'lucide-react';
+import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../services/api';
@@ -21,7 +21,7 @@ const MerchantIntake = () => {
   });
 
   const [officers, setOfficers] = useState([
-    { id: 1, full_name: '', role: 'UBO (Ultimate Beneficiary Owner)', dob: '', passport_number: '', residential_address: '', file_id: '' }
+    { id: 1, full_name: '', role: '', dob: '', passport_number: '', residential_address: '', file_id: '' }
   ]);
 
   // --- HANDLERS ---
@@ -32,7 +32,8 @@ const MerchantIntake = () => {
     setDebugData(null); 
     
     try {
-      const result = await api.analyzeDocument(file);
+      // Pass the docType context ('COMPANY' or 'OFFICER')
+      const result = await api.analyzeDocument(file, type);
       const data = result.analysis;
       const fileId = result.file_id;
 
@@ -54,7 +55,8 @@ const MerchantIntake = () => {
           file_id: fileId,
           full_name: data.full_name || o.full_name,
           dob: data.dob || o.dob,
-          passport_number: data.passport_number || o.passport_number
+          passport_number: data.passport_number || o.passport_number,
+          residential_address: data.residential_address || o.residential_address
         } : o));
       }
 
@@ -142,7 +144,6 @@ const MerchantIntake = () => {
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-6 relative">
             <Cpu size={64} className="text-gold-400 relative z-10" />
           </motion.div>
-          {/* UPDATED TEXT HERE */}
           <h2 className="text-2xl font-bold text-white mb-2">AI Extraction...</h2>
         </div>
       )}
@@ -179,9 +180,9 @@ const MerchantIntake = () => {
                     <Upload className="w-10 h-10 mb-3 text-gray-500 group-hover:text-gold-400 transition-colors" />
                     <p className="mb-2 text-sm text-gray-400"><span className="font-semibold text-white">Click to upload</span> Certificate of Inc.</p>
                   </div>
+                  {/* CONTEXT PASSING: 'COMPANY' */}
                   <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], 'COMPANY')} />
                </label>
-               {/* REMOVED VAULT TEXT HERE */}
             </div>
 
             <div className="space-y-5">
@@ -234,7 +235,7 @@ const MerchantIntake = () => {
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-white">Directors & Shareholders</h2>
-            <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: 'UBO (Ultimate Beneficiary Owner)', dob: '', passport_number: '', file_id: '' }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2 transition-colors">
+            <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: '', dob: '', passport_number: '', file_id: '' }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2 transition-colors">
               <Plus size={16} /> Add Person
             </button>
           </div>
@@ -246,26 +247,42 @@ const MerchantIntake = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* UPLOAD COLUMN */}
                 <div className="col-span-1">
                    <h3 className="text-gold-400 font-medium mb-3 flex items-center gap-2"><Shield size={16} /> Officer #{index + 1}</h3>
-                   <label className="flex flex-col items-center justify-center h-32 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:bg-black/20">
-                      <div className="text-center">
-                         <Upload className="mx-auto text-gray-500 mb-1" size={20} />
-                         <span className="text-xs text-gray-400">Upload ID/Passport</span>
-                      </div>
-                      <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], 'OFFICER', officer.id)} />
-                   </label>
-                   {/* REMOVED VAULT TEXT HERE */}
+                   
+                   {/* 🔒 UX IMPROVEMENT: LOCKED UNTIL ROLE SELECTED */}
+                   {officer.role ? (
+                     <>
+                       <label className="flex flex-col items-center justify-center h-32 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:bg-black/20 group">
+                          <div className="text-center group-hover:scale-105 transition-transform">
+                             <Upload className="mx-auto text-gold-400 mb-1" size={20} />
+                             <span className="text-xs text-gray-300 font-medium">Click to Upload ID</span>
+                          </div>
+                          {/* CONTEXT PASSING: 'OFFICER' */}
+                          <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], 'OFFICER', officer.id)} />
+                       </label>
+                       {officer.file_id && <p className="text-xs text-green-400 mt-2 flex items-center gap-1"><CheckCircle size={12}/> Analysis Complete</p>}
+                     </>
+                   ) : (
+                     <div className="h-32 border border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center bg-gray-900/50 opacity-60 cursor-not-allowed">
+                        <Lock className="text-gray-600 mb-2" size={20} />
+                        <span className="text-xs text-gray-500 text-center px-4">Select Role below<br/>to unlock upload</span>
+                     </div>
+                   )}
                 </div>
+
+                {/* FORM INPUTS */}
                 <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input label="Full Name" value={officer.full_name} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, full_name: e.target.value } : o))} />
                   
-                  {/* UPDATED ROLE DROPDOWN */}
+                  {/* ROLE DROPDOWN */}
                   <Select 
                     label="Role" 
                     value={officer.role} 
                     onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, role: e.target.value } : o))}
                     options={[
+                      "", 
                       "UBO (Ultimate Beneficiary Owner)",
                       "Shareholder",
                       "Director",
@@ -275,6 +292,9 @@ const MerchantIntake = () => {
 
                   <Input label="Passport Number" value={officer.passport_number} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, passport_number: e.target.value } : o))} />
                   <Input label="Date of Birth" value={officer.dob} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, dob: e.target.value } : o))} />
+                  <div className="md:col-span-2">
+                     <Input label="Residential Address" value={officer.residential_address} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, residential_address: e.target.value } : o))} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -299,7 +319,7 @@ const Input = ({ label, value, onChange }) => (
   </div>
 );
 
-// COMPONENT: Select (New!)
+// COMPONENT: Select
 const Select = ({ label, value, onChange, options }) => (
   <div className="w-full">
     <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">{label}</label>
@@ -309,7 +329,7 @@ const Select = ({ label, value, onChange, options }) => (
       className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:ring-1 focus:ring-gold-400 focus:outline-none transition-all appearance-none cursor-pointer"
     >
       {options.map((opt, i) => (
-        <option key={i} value={opt} className="bg-obsidian-900">{opt}</option>
+        <option key={i} value={opt} className="bg-obsidian-900">{opt === "" ? "Select Role..." : opt}</option>
       ))}
     </select>
   </div>
