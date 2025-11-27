@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock, FileText, ChevronDown, User } from 'lucide-react';
+import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock, FileText, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../services/api';
@@ -38,39 +38,26 @@ const MerchantIntake = () => {
   // 🧠 LOGIC: Dynamic Document Filtering
   const getEntityDocOptions = () => {
     const options = [];
-    
-    // Logic: If Identity fields are missing, show Identity Docs
-    const needsIdentity = !company.company_name || !company.registration_number || !company.incorporation_date;
-    // Logic: If Address fields are missing, show Address Docs
-    const needsAddress = !company.registered_address || !company.operational_address;
-
-    if (needsIdentity) {
+    // Only show ID docs if ID fields are missing
+    if (!company.company_name || !company.registration_number || !company.incorporation_date) {
       options.push({ val: "CERT_INC", label: "Certificate of Incorporation" });
     }
-    // Incumbency usually has both
-    if (needsIdentity || needsAddress) {
+    if (!company.registered_address) {
       options.push({ val: "CERT_INCUMBENCY", label: "Certificate of Incumbency" });
-    }
-    if (needsAddress) {
       options.push({ val: "CERT_ADDRESS", label: "Certificate of Reg Address" });
       options.push({ val: "ENTITY_UTILITY", label: "Company Utility Bill" });
     }
-    
     return options.length > 0 ? options : [{ val: "", label: "All Data Extracted! (Review below)" }];
   };
 
   const getOfficerDocOptions = (officer) => {
     const options = [];
-    const needsIdentity = !officer.full_name || !officer.passport_number || !officer.dob;
-    const needsAddress = !officer.residential_address;
-
-    if (needsIdentity) {
+    if (!officer.full_name || !officer.passport_number || !officer.dob) {
       options.push({ val: "PASSPORT_ID", label: "Passport / ID Card" });
     }
-    if (needsAddress) {
+    if (!officer.residential_address) {
       options.push({ val: "PERSONAL_UTILITY", label: "Personal Utility Bill" });
     }
-
     return options.length > 0 ? options : [{ val: "", label: "All Data Extracted!" }];
   };
 
@@ -105,14 +92,13 @@ const MerchantIntake = () => {
           registered_address:  getVal(aiData.registered_address, tesseractData.registered_address) || prev.registered_address,
           operational_address: getVal(aiData.operational_address, tesseractData.operational_address) || prev.operational_address
         }));
-        // Reset dropdown to force user to re-evaluate what's needed
         setDocType(""); 
       } 
       else if (context === 'OFFICER') {
         setOfficers(prev => prev.map(o => o.id === officerId ? {
           ...o,
           file_id: fileId,
-          doc_type: "", // Reset dropdown
+          doc_type: "", 
           full_name:         getVal(aiData.full_name, o.full_name),
           dob:               getVal(aiData.dob, tesseractData.dob) || o.dob,
           passport_number:   getVal(aiData.passport_number, tesseractData.passport_number) || o.passport_number,
@@ -128,8 +114,14 @@ const MerchantIntake = () => {
     }
   };
 
+  // 🔒 VALIDATION: Step 1 (Entity)
   const saveCompanyStep = async () => {
-    if (!company.company_name) return alert("Company Name is required");
+    // Check all required fields
+    if (!company.company_name || !company.registration_number || !company.incorporation_date || !company.country || !company.registered_address) {
+      alert("⚠️ Incomplete Data\n\nPlease fill in all required fields marked with * (Company Name, Reg Number, Date, Country, Registered Address).");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await api.initMerchant(company);
@@ -141,13 +133,23 @@ const MerchantIntake = () => {
     finally { setLoading(false); }
   };
 
+  // 🔒 VALIDATION: Step 2 (Officers)
   const submitAll = async () => {
+    // Check every officer for missing fields
+    for (let i = 0; i < officers.length; i++) {
+      const o = officers[i];
+      if (!o.full_name || !o.role || !o.passport_number || !o.dob || !o.residential_address) {
+        alert(`⚠️ Incomplete Officer\n\nPlease fill in all details for Officer #${i + 1} (Name, Role, Passport No, DOB, Residential Address).`);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const promises = officers.map(officer => api.saveOfficer({ ...officer, merchant_id: company.merchant_id, merchant_folder_url: company.folder_url }));
       await Promise.all(promises);
       api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Submitted with ${officers.length} officers`);
-      alert("Onboarding Complete! Files saved.");
+      alert("✅ Onboarding Complete!\n\nAll data and files have been secured in the Vault.");
       window.location.href = "/"; 
     } catch (err) { alert("Error: " + err.message); } 
     finally { setLoading(false); }
@@ -175,6 +177,7 @@ const MerchantIntake = () => {
         </div>
       </div>
 
+      {/* LOADERS */}
       {analyzing && (
         <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 backdrop-blur-sm">
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-6 relative">
@@ -209,7 +212,6 @@ const MerchantIntake = () => {
                    className="w-full bg-obsidian-900 border border-gold-500/30 rounded-lg p-3 text-white focus:outline-none focus:border-gold-400"
                  >
                    <option value="">-- Choose Document --</option>
-                   {/* 🧠 DYNAMIC OPTIONS: Only show what is needed */}
                    {getEntityDocOptions().map(opt => (
                      <option key={opt.val} value={opt.val}>{opt.label}</option>
                    ))}
@@ -232,13 +234,13 @@ const MerchantIntake = () => {
             </div>
 
             <div className="space-y-5">
-              <Input label="Company Legal Name" value={company.company_name} onChange={e => setCompany({...company, company_name: e.target.value})} />
-              <Input label="Registration Number" value={company.registration_number} onChange={e => setCompany({...company, registration_number: e.target.value})} />
-              <Input label="Date of Incorporation" value={company.incorporation_date} onChange={e => setCompany({...company, incorporation_date: e.target.value})} />
-              <Input label="Country of Registration" value={company.country} onChange={e => setCompany({...company, country: e.target.value})} />
+              <Input label="Company Legal Name" required value={company.company_name} onChange={e => setCompany({...company, company_name: e.target.value})} />
+              <Input label="Registration Number" required value={company.registration_number} onChange={e => setCompany({...company, registration_number: e.target.value})} />
+              <Input label="Date of Incorporation" required value={company.incorporation_date} onChange={e => setCompany({...company, incorporation_date: e.target.value})} />
+              <Input label="Country of Registration" required value={company.country} onChange={e => setCompany({...company, country: e.target.value})} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Registered Address" value={company.registered_address} onChange={e => setCompany({...company, registered_address: e.target.value})} />
-                <Input label="Operational Address" value={company.operational_address} onChange={e => setCompany({...company, operational_address: e.target.value})} />
+                <Input label="Registered Address" required value={company.registered_address} onChange={e => setCompany({...company, registered_address: e.target.value})} />
+                <Input label="Operational Address (Optional)" value={company.operational_address} onChange={e => setCompany({...company, operational_address: e.target.value})} />
               </div>
               <div className="pt-4 flex justify-end">
                 <button onClick={saveCompanyStep} className="bg-gold-gradient text-black font-bold py-3 px-8 rounded-xl flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-gold-500/20">Proceed to Officers <CheckCircle size={18} /></button>
@@ -265,7 +267,7 @@ const MerchantIntake = () => {
         </div>
       )}
 
-      {/* STEP 2: OFFICERS (Progressive UX) */}
+      {/* STEP 2: OFFICERS */}
       {step === 2 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2 space-y-6">
@@ -281,13 +283,11 @@ const MerchantIntake = () => {
               <div key={officer.id} className="bg-obsidian-800 p-6 rounded-xl border border-gray-700 relative shadow-xl transition-all">
                 <div className="absolute top-4 right-4 text-gray-500 hover:text-red-400 cursor-pointer p-2" onClick={() => setOfficers(officers.filter(o => o.id !== officer.id))}><Trash2 size={18} /></div>
                 
-                {/* HEADER ROW */}
                 <div className="flex items-center gap-3 mb-6">
                    <div className="p-2 bg-gold-500/10 rounded-lg text-gold-400"><User size={20} /></div>
                    <h3 className="text-lg font-medium text-white">Officer #{index + 1} Profile</h3>
                 </div>
 
-                {/* 🎨 PROGRESSIVE UX: Role Selection First */}
                 <div className="mb-6">
                    <label className="block text-sm text-gray-400 mb-2">Role in Company <span className="text-red-500">*</span></label>
                    <select 
@@ -303,17 +303,10 @@ const MerchantIntake = () => {
                    </select>
                 </div>
 
-                {/* 🔒 EXPANDABLE SECTION (Only if Role Selected) */}
                 <AnimatePresence>
                   {officer.role && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-700/50">
-                        {/* UPLOAD COLUMN */}
                         <div className="col-span-1">
                            <label className="block text-xs font-medium text-gray-400 mb-2">Upload Evidence:</label>
                            <select 
@@ -322,10 +315,7 @@ const MerchantIntake = () => {
                              className="w-full bg-black/30 text-xs border border-gray-700 rounded mb-3 p-2 text-gray-300"
                            >
                              <option value="">-- Select Document --</option>
-                             {/* 🧠 DYNAMIC OFFICER OPTIONS */}
-                             {getOfficerDocOptions(officer).map(opt => (
-                               <option key={opt.val} value={opt.val}>{opt.label}</option>
-                             ))}
+                             {getOfficerDocOptions(officer).map(opt => <option key={opt.val} value={opt.val}>{opt.label}</option>)}
                            </select>
 
                            {officer.doc_type && officer.doc_type !== "" ? (
@@ -340,12 +330,11 @@ const MerchantIntake = () => {
                            )}
                         </div>
 
-                        {/* DATA INPUTS */}
                         <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="md:col-span-2"><Input label="Full Name" value={officer.full_name} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, full_name: e.target.value } : o))} /></div>
-                          <Input label="Passport/ID Number" value={officer.passport_number} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, passport_number: e.target.value } : o))} />
-                          <Input label="Date of Birth" value={officer.dob} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, dob: e.target.value } : o))} />
-                          <div className="md:col-span-2"><Input label="Residential Address" value={officer.residential_address} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, residential_address: e.target.value } : o))} /></div>
+                          <div className="md:col-span-2"><Input label="Full Name" required value={officer.full_name} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, full_name: e.target.value } : o))} /></div>
+                          <Input label="Passport/ID Number" required value={officer.passport_number} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, passport_number: e.target.value } : o))} />
+                          <Input label="Date of Birth" required value={officer.dob} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, dob: e.target.value } : o))} />
+                          <div className="md:col-span-2"><Input label="Residential Address" required value={officer.residential_address} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, residential_address: e.target.value } : o))} /></div>
                         </div>
                       </div>
                     </motion.div>
@@ -383,8 +372,40 @@ const MerchantIntake = () => {
   );
 };
 
-const Input = ({ label, value, onChange }) => (<div className="w-full"><label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">{label}</label><input type="text" value={value || ''} onChange={onChange} className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:ring-1 focus:ring-gold-400 focus:outline-none transition-all" /></div>);
-const Select = ({ label, value, onChange, options }) => (<div className="w-full"><label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">{label}</label><select value={value} onChange={onChange} className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:ring-1 focus:ring-gold-400 focus:outline-none transition-all appearance-none cursor-pointer">{options.map((opt, i) => <option key={i} value={opt} className="bg-obsidian-900">{opt === "" ? "Select Role..." : opt}</option>)}</select></div>);
-const StepBadge = ({ num, label, active }) => (<div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${active ? 'bg-gold-500/20 border border-gold-500/30' : 'bg-transparent opacity-50'}`}><span className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${active ? 'bg-gold-400 text-black' : 'bg-gray-700 text-gray-400'}`}>{num}</span><span className={`text-xs font-medium ${active ? 'text-gold-100' : 'text-gray-500'}`}>{label}</span></div>);
+const Input = ({ label, value, onChange, required }) => (
+  <div className="w-full">
+    <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <input 
+      type="text" 
+      value={value || ''} 
+      onChange={onChange} 
+      className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:ring-1 focus:ring-gold-400 focus:outline-none transition-all" 
+    />
+  </div>
+);
+
+const Select = ({ label, value, onChange, options }) => (
+  <div className="w-full">
+    <label className="block text-xs font-medium text-gray-400 mb-1.5 ml-1">{label}</label>
+    <select 
+      value={value} 
+      onChange={onChange} 
+      className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:ring-1 focus:ring-gold-400 focus:outline-none transition-all appearance-none cursor-pointer"
+    >
+      {options.map((opt, i) => (
+        <option key={i} value={opt} className="bg-obsidian-900">{opt === "" ? "Select Role..." : opt}</option>
+      ))}
+    </select>
+  </div>
+);
+
+const StepBadge = ({ num, label, active }) => (
+  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${active ? 'bg-gold-500/20 border border-gold-500/30' : 'bg-transparent opacity-50'}`}>
+    <span className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${active ? 'bg-gold-400 text-black' : 'bg-gray-700 text-gray-400'}`}>{num}</span>
+    <span className={`text-xs font-medium ${active ? 'text-gold-100' : 'text-gray-500'}`}>{label}</span>
+  </div>
+);
 
 export default MerchantIntake;
