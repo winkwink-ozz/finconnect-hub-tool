@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../services/api';
-import { Search, Filter, ChevronDown, ChevronUp, ExternalLink, User, Building, FileText, Loader2 } from 'lucide-react';
+// 🛠️ FIX: Added 'Users' to the import list
+import { Search, Filter, ChevronDown, ChevronUp, ExternalLink, Users, Building, FileText, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Profiles = () => {
@@ -14,9 +15,14 @@ const Profiles = () => {
   }, []);
 
   const loadData = async () => {
-    const data = await api.getMerchants();
-    setMerchants(data);
-    setLoading(false);
+    try {
+      const data = await api.getMerchants();
+      setMerchants(data);
+    } catch (error) {
+      console.error("Failed to load merchants", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleExpand = async (id) => {
@@ -26,8 +32,12 @@ const Profiles = () => {
       setExpandedId(id);
       if (!details[id]) {
         // Lazy load details only when clicked
-        const fullData = await api.getMerchantDetails(id);
-        setDetails(prev => ({ ...prev, [id]: fullData }));
+        try {
+          const fullData = await api.getMerchantDetails(id);
+          setDetails(prev => ({ ...prev, [id]: fullData }));
+        } catch (error) {
+          console.error("Failed to load details", error);
+        }
       }
     }
   };
@@ -110,18 +120,21 @@ const Profiles = () => {
                           <div className="space-y-3">
                             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2"><Users size={14}/> Officers & Shareholders</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {details[m.merchant_id].officers.map((off, idx) => (
-                                <div key={idx} className="bg-obsidian-900 p-4 rounded-xl border border-gray-700 flex flex-col gap-1">
-                                  <div className="flex justify-between">
-                                    <span className="font-semibold text-white">{off.full_name}</span>
-                                    <span className="text-xs text-gold-400 border border-gold-500/30 px-2 py-0.5 rounded">{off.role}</span>
+                              {details[m.merchant_id].officers && details[m.merchant_id].officers.length > 0 ? (
+                                details[m.merchant_id].officers.map((off, idx) => (
+                                  <div key={idx} className="bg-obsidian-900 p-4 rounded-xl border border-gray-700 flex flex-col gap-1">
+                                    <div className="flex justify-between">
+                                      <span className="font-semibold text-white">{off.full_name}</span>
+                                      <span className="text-xs text-gold-400 border border-gold-500/30 px-2 py-0.5 rounded">{off.role}</span>
+                                    </div>
+                                    <div className="text-xs text-gray-400">Passport: {off.passport_number}</div>
+                                    <div className="text-xs text-gray-400">DOB: {off.dob ? new Date(off.dob).toLocaleDateString() : 'N/A'}</div>
+                                    <div className="text-xs text-gray-500 mt-2">{off.residential_address || "No Address Found"}</div>
                                   </div>
-                                  <div className="text-xs text-gray-400">Passport: {off.passport_number}</div>
-                                  <div className="text-xs text-gray-400">DOB: {new Date(off.dob).toLocaleDateString()}</div>
-                                  <div className="text-xs text-gray-500 mt-2">{off.residential_address || "No Address Found"}</div>
-                                </div>
-                              ))}
-                              {details[m.merchant_id].officers.length === 0 && <div className="text-gray-500 text-sm italic">No officers recorded.</div>}
+                                ))
+                              ) : (
+                                <div className="text-gray-500 text-sm italic">No officers recorded.</div>
+                              )}
                             </div>
                           </div>
                         </>
