@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock, FileText, User, X, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,11 +21,12 @@ const MerchantIntake = () => {
   const [company, setCompany] = useState({
     company_name: '', registration_number: '', incorporation_date: '',
     country: '', registered_address: '', operational_address: '',
-    file_id: '', folder_url: '' 
+    file_id: '', folder_url: '', folder_id: '',
+    uploaded_files: [] // Array to store all file IDs
   });
 
   const [officers, setOfficers] = useState([
-    { id: 1, full_name: '', role: '', dob: '', passport_number: '', residential_address: '', doc_type: '', file_id: '' }
+    { id: 1, full_name: '', role: '', dob: '', passport_number: '', residential_address: '', doc_type: '', file_id: '', uploaded_files: [] }
   ]);
 
   // --- HELPERS ---
@@ -83,6 +84,7 @@ const MerchantIntake = () => {
       
       const aiData = geminiResult.analysis || {};
       const fileId = geminiResult.file_id;
+      const newFileObj = { id: fileId, type: category }; // Store ID + Type
 
       setDebugData(aiData); 
       setLocalData(tesseractData); 
@@ -91,6 +93,7 @@ const MerchantIntake = () => {
         setCompany(prev => ({
           ...prev,
           file_id: fileId,
+          uploaded_files: [...(prev.uploaded_files || []), newFileObj], // Accumulate files
           company_name:        getVal(aiData.company_name, tesseractData.company_name) || prev.company_name,
           registration_number: getVal(aiData.registration_number, tesseractData.registration_number) || prev.registration_number,
           incorporation_date:  getVal(aiData.incorporation_date, tesseractData.incorporation_date) || prev.incorporation_date,
@@ -105,6 +108,7 @@ const MerchantIntake = () => {
         setOfficers(prev => prev.map(o => o.id === officerId ? {
           ...o,
           file_id: fileId,
+          uploaded_files: [...(o.uploaded_files || []), newFileObj], // Accumulate files
           doc_type: "", 
           full_name:         getVal(aiData.full_name, o.full_name),
           dob:               getVal(aiData.dob, tesseractData.dob) || o.dob,
@@ -123,6 +127,7 @@ const MerchantIntake = () => {
   };
 
   const saveCompanyStep = async () => {
+    // Strict Validation
     const missing = [];
     if (!company.company_name) missing.push("Company Name");
     if (!company.registration_number) missing.push("Registration Number");
@@ -137,11 +142,19 @@ const MerchantIntake = () => {
 
     setLoading(true);
     try {
-      const res = await api.initMerchant(company);
+      // 🛠️ FIX: Send the Accumulated File List to Backend
+      // If uploaded_files is empty (manual entry?), try fallback to single file_id
+      let filesPayload = company.uploaded_files;
+      if ((!filesPayload || filesPayload.length === 0) && company.file_id) {
+        filesPayload = [{ id: company.file_id, type: 'LEGACY' }];
+      }
+
+      const res = await api.initMerchant({ ...company, file_ids: filesPayload });
+      
       if (res.status === 'success') {
-        setCompany(prev => ({ ...prev, merchant_id: res.data.merchant_id, folder_url: res.data.folder_url }));
+        setCompany(prev => ({ ...prev, merchant_id: res.data.merchant_id, folder_url: res.data.folder_url, folder_id: res.data.folder_id }));
         
-        // 🧹 CLEAR DEBUG DATA ON STEP CHANGE
+        // 🧹 FIX: CLEAR DEBUG DATA SO IT DOESN'T SHOW IN STEP 2
         setDebugData(null);
         setLocalData(null);
         
@@ -163,7 +176,21 @@ const MerchantIntake = () => {
 
     setLoading(true);
     try {
-      const promises = officers.map(officer => api.saveOfficer({ ...officer, merchant_id: company.merchant_id, merchant_folder_url: company.folder_url }));
+      const promises = officers.map(officer => {
+        // 🛠️ FIX: Send Officer File List
+        let filesPayload = officer.uploaded_files;
+        if ((!filesPayload || filesPayload.length === 0) && officer.file_id) {
+          filesPayload = [{ id: officer.file_id, type: 'LEGACY_OFFICER' }];
+        }
+        
+        return api.saveOfficer({ 
+          ...officer, 
+          merchant_id: company.merchant_id, 
+          folder_id: company.folder_id, // Pass the folder ID we got from step 1
+          file_ids: filesPayload
+        });
+      });
+
       await Promise.all(promises);
       api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Submitted with ${officers.length} officers`);
       
@@ -314,7 +341,7 @@ const MerchantIntake = () => {
               <h2 className="text-xl font-semibold text-white">Directors & Shareholders</h2>
               <div className="flex gap-4 items-center">
                  <button onClick={() => setShowDebug(!showDebug)} className="text-xs text-gold-400 border border-gold-500/30 px-3 py-1.5 rounded-full flex items-center gap-2">{showDebug ? <EyeOff size={12}/> : <Eye size={12}/>} Debug</button>
-                 <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: '', dob: '', passport_number: '', doc_type: '', file_id: '' }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"><Plus size={16} /> Add Person</button>
+                 <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: '', dob: '', passport_number: '', doc_type: '', uploaded_files: [] }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"><Plus size={16} /> Add Person</button>
               </div>
             </div>
 
@@ -349,7 +376,6 @@ const MerchantIntake = () => {
                         <div className="col-span-1">
                            <label className="block text-xs font-medium text-gray-400 mb-2">Upload Evidence:</label>
                            
-                           {/* 🎨 UI FIX: Black Dropdown Background & White Text */}
                            <select 
                              value={officer.doc_type}
                              onChange={(e) => setOfficers(officers.map(o => o.id === officer.id ? { ...o, doc_type: e.target.value } : o))}
