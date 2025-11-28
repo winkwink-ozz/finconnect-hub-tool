@@ -1,18 +1,20 @@
 import Tesseract from 'tesseract.js';
-// ✅ FIX: Import the function with the correct name existing in parsers.js
 import { parseRawText } from './parsers';
 
-export const runSyntaxEngine = async (file, category) => {
+/**
+ * CLIENT-SIDE OPTICAL CHARACTER RECOGNITION
+ * Powered by Tesseract.js (WASM)
+ */
+export const runOCR = async (file, category) => {
   try {
-    // 1. Run Tesseract (Client-Side OCR)
+    // 1. Execute Tesseract
     const result = await Tesseract.recognize(file, 'eng', {
-      logger: m => console.log(`[OCR] ${m.status}: ${Math.round(m.progress * 100)}%`)
+      // logger: m => console.log(`[OCR] ${m.status}: ${Math.round(m.progress * 100)}%`) // Uncomment for debug
     });
 
     const rawText = result.data.text;
     
-    // 2. Parse the text using our Regex Engine
-    // ✅ FIX: Call the correct function
+    // 2. Parse Text (Regex Engine)
     const extracted = parseRawText(rawText, category);
 
     return {
