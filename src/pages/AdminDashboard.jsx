@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../services/api'; // ✅ FIXED PATH
+import { api } from '../services/api';
 import { Users, FileCheck, Clock, AlertTriangle, TrendingUp, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -57,25 +57,27 @@ const AdminDashboard = () => {
         animate="show"
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
       >
-        <StatCard icon={Users} label="Total Applications" value={stats.total} color="blue" delay={0} />
+        <StatCard icon={Users} label="Total Applications" value={stats.total} color="gold" delay={0} />
         <StatCard icon={Clock} label="Pending Review" value={stats.pending} color="yellow" delay={0.1} />
         <StatCard icon={FileCheck} label="Approved" value={stats.approved} color="green" delay={0.2} />
         <StatCard icon={AlertTriangle} label="Rejected" value={stats.rejected} color="red" delay={0.3} />
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Activity Stream */}
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="lg:col-span-2 bg-slate-800 rounded-2xl border border-gray-700 p-6 shadow-xl"
+            className="lg:col-span-2 bg-obsidian-800 rounded-2xl border border-gray-700 p-6 shadow-xl"
         >
             <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400"><Activity size={20}/></div>
+                <div className="p-2 bg-gold-500/10 rounded-lg text-gold-400"><Activity size={20}/></div>
                 <h3 className="text-lg font-bold text-white">Live Activity Stream</h3>
             </div>
             <div className="space-y-4">
-                {[1,2,3].map(i => (
+                {/* Simulated Activity - In a real app, this would be a list from the Audit Log */}
+                {[1, 2, 3].map(i => (
                     <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-black/20 border border-gray-800/50">
                         <div className="w-2 h-2 rounded-full bg-gray-600"></div>
                         <div className="flex-1 space-y-1">
@@ -87,11 +89,12 @@ const AdminDashboard = () => {
             </div>
         </motion.div>
 
+        {/* System Health */}
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-slate-800 rounded-2xl border border-gray-700 p-6 shadow-xl"
+            className="bg-obsidian-800 rounded-2xl border border-gray-700 p-6 shadow-xl"
         >
              <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><TrendingUp size={20}/></div>
@@ -99,8 +102,8 @@ const AdminDashboard = () => {
             </div>
             <div className="space-y-6">
                 <HealthBar label="API Latency" value="24ms" percent={90} color="green" />
-                <HealthBar label="Database Load" value="12%" percent={12} color="blue" />
-                <HealthBar label="AI Token Usage" value="450/1M" percent={45} color="yellow" />
+                <HealthBar label="Database Load" value="12%" percent={12} color="purple" />
+                <HealthBar label="AI Token Usage" value="450/1M" percent={45} color="gold" />
             </div>
         </motion.div>
       </div>
@@ -109,21 +112,28 @@ const AdminDashboard = () => {
 };
 
 const StatCard = ({ icon: Icon, label, value, color }) => {
+    // 🎨 THEME ENGINE: Mapped to Tailwind Config
     const colors = {
-        blue: "text-blue-400 border-blue-500/30 hover:border-blue-500",
-        yellow: "text-yellow-400 border-yellow-500/30 hover:border-yellow-500",
+        gold: "text-gold-400 border-gold-500/30 hover:border-gold-500",
+        yellow: "text-yellow-400 border-yellow-500/30 hover:border-yellow-500", // Fallback for Warning
         green: "text-green-400 border-green-500/30 hover:border-green-500",
         red: "text-red-400 border-red-500/30 hover:border-red-500",
+        purple: "text-purple-400 border-purple-500/30 hover:border-purple-500",
     };
     
+    // Fallback to gold if color not found
+    const activeColor = colors[color] || colors.gold;
+    const bgGlow = activeColor.split(' ')[0]; // Extract 'text-color-400'
+
     return (
-        <motion.div variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className={`p-6 rounded-2xl bg-slate-800 border ${colors[color]} shadow-xl transition-all group relative overflow-hidden`}>
+        <motion.div variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className={`p-6 rounded-2xl bg-obsidian-800 border ${activeColor} shadow-xl transition-all group relative overflow-hidden`}>
             <div className="relative z-10">
                 <div className="flex justify-between items-start mb-4">
-                    <div className={`p-3 rounded-xl bg-black/40 ${colors[color].split(' ')[0]}`}>
+                    <div className={`p-3 rounded-xl bg-black/40 ${bgGlow}`}>
                         <Icon size={24} />
                     </div>
-                    <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full blur-3xl opacity-10 bg-current ${colors[color].split(' ')[0]}`}></div>
+                    {/* Subtle Glow Orb */}
+                    <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full blur-3xl opacity-10 bg-current ${bgGlow}`}></div>
                 </div>
                 <div className="space-y-1">
                     <h3 className="text-3xl font-bold text-white">{value}</h3>
@@ -134,16 +144,26 @@ const StatCard = ({ icon: Icon, label, value, color }) => {
     );
 };
 
-const HealthBar = ({ label, value, percent, color }) => (
-    <div>
-        <div className="flex justify-between text-xs mb-2">
-            <span className="text-gray-400">{label}</span>
-            <span className="text-white font-mono">{value}</span>
+const HealthBar = ({ label, value, percent, color }) => {
+    // Dynamic color mapping for the bar
+    const barColors = {
+        green: "bg-green-500",
+        purple: "bg-purple-500",
+        gold: "bg-gold-500",
+        blue: "bg-blue-500" // Kept just in case, but unused in main view
+    };
+
+    return (
+        <div>
+            <div className="flex justify-between text-xs mb-2">
+                <span className="text-gray-400">{label}</span>
+                <span className="text-white font-mono">{value}</span>
+            </div>
+            <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${barColors[color] || 'bg-gold-500'}`} style={{ width: `${percent}%` }}></div>
+            </div>
         </div>
-        <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${percent}%` }}></div>
-        </div>
-    </div>
-);
+    );
+};
 
 export default AdminDashboard;
