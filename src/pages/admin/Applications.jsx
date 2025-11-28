@@ -1,99 +1,149 @@
-import React, { useState } from 'react';
-import { FileText, Upload, Settings, Wand2, FileType, Cpu, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../services/api';
+import { PDFDocument } from 'pdf-lib';
+import download from 'downloadjs';
 import { motion } from 'framer-motion';
+import { FileText, Download, Loader, AlertTriangle, Check, RefreshCw } from 'lucide-react';
 
-const Applications = () => {
-  const [mode, setMode] = useState(null); 
+export default function Applications() {
+  const [merchants, setMerchants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(null);
+
+  useEffect(() => {
+    loadApprovedMerchants();
+  }, []);
+
+  const loadApprovedMerchants = async () => {
+    try {
+      setLoading(true);
+      const all = await api.getAllMerchants();
+      // Filter: Only show merchants that have been Approved in the Profiles Sniper View
+      setMerchants(all.filter(m => m.status === 'Approved'));
+    } catch (e) {
+      console.error("Failed to load merchants");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generatePDF = async (merchant) => {
+    setGenerating(merchant.merchant_id);
+    
+    try {
+      // ⚠️ TARGET FILE: Ensure 'merchant_application_template.pdf' is in 'public/forms/'
+      const formUrl = '/forms/merchant_application_template.pdf';
+      
+      const formBytes = await fetch(formUrl).then(res => {
+        if (!res.ok) throw new Error("Template PDF not found. Please check public/forms folder.");
+        return res.arrayBuffer();
+      });
+
+      const pdfDoc = await PDFDocument.load(formBytes);
+      const form = pdfDoc.getForm();
+
+      // 📝 MAPPING ENGINE
+      // Key = The 'Name' of the text field in the PDF
+      // Value = The data from our system
+      const fields = {
+        'company_name': merchant.company_name,
+        'registration_number': merchant.registration_number,
+        'incorporation_date': merchant.incorporation_date,
+        'country': merchant.country,
+        'address': merchant.registered_address,
+        'merchant_id': merchant.merchant_id,
+        'status': 'APPROVED'
+      };
+
+      // Fill fields safely (Skip if PDF field doesn't exist)
+      Object.entries(fields).forEach(([key, value]) => {
+        try {
+          const field = form.getTextField(key);
+          if (field) field.setText(value || '');
+        } catch (err) {
+          console.warn(`Field '${key}' not found in PDF template.`);
+        }
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      download(pdfBytes, `Application_${merchant.company_name.replace(/\s/g, '_')}.pdf`, "application/pdf");
+
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setGenerating(null);
+    }
+  };
 
   return (
-    <div className="space-y-12">
-      
-      {/* 🏭 FACTORY HEADER ANIMATION */}
-      <div className="relative h-80 bg-gradient-to-b from-obsidian-900 to-black rounded-3xl border border-gray-700 overflow-hidden flex items-end justify-center shadow-2xl">
-        
-        {/* SMOKE STACKS */}
-        <div className="absolute top-20 left-1/3 flex gap-4">
-           {[0, 1, 2].map(i => (
-             <motion.div 
-               key={i}
-               initial={{ y: 0, opacity: 0.8, scale: 1 }}
-               animate={{ y: -100, opacity: 0, scale: 2 }}
-               transition={{ duration: 3, repeat: Infinity, delay: i * 0.8, ease: "easeOut" }}
-               className="w-8 h-8 bg-white/10 rounded-full blur-xl"
-             />
-           ))}
-        </div>
-
-        {/* FACTORY SVG STRUCTURE */}
-        <svg width="600" height="200" viewBox="0 0 600 200" className="text-gray-800 fill-current z-10">
-           <path d="M50,200 L50,100 L100,50 L150,100 L150,200 Z" /> {/* Stack 1 */}
-           <path d="M160,200 L160,80 L210,30 L260,80 L260,200 Z" /> {/* Stack 2 */}
-           <rect x="300" y="100" width="200" height="100" /> {/* Main Building */}
-           <rect x="0" y="190" width="600" height="10" className="fill-gray-700"/> {/* Floor */}
-        </svg>
-
-        {/* ANIMATED GEARS */}
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} className="absolute bottom-8 left-[320px] z-20">
-           <Gear size={60} color="#D4AF37" />
-        </motion.div>
-        <motion.div animate={{ rotate: -360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} className="absolute bottom-8 left-[375px] z-20">
-           <Gear size={40} color="#4A90E2" />
-        </motion.div>
-
-        {/* TITLE OVERLAY */}
-        <div className="absolute top-10 w-full text-center z-30">
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold-500/10 text-gold-400 text-xs font-bold uppercase tracking-widest border border-gold-500/20"
-          >
-            <Cpu size={14} /> FinConnect Core
-          </motion.div>
-          <h1 className="text-5xl font-bold text-white mt-4 tracking-tight drop-shadow-2xl">
+    <div className="p-8 min-h-screen bg-slate-900 text-white">
+      <div className="flex justify-between items-end mb-8 border-b border-slate-800 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">
             Application Factory
           </h1>
+          <p className="text-slate-400 mt-2 text-sm">Generate official banking forms for approved entities.</p>
         </div>
+        <button onClick={loadApprovedMerchants} className="p-2 bg-slate-800 rounded hover:text-cyan-400 transition-colors">
+            <RefreshCw size={18} />
+        </button>
       </div>
 
-      {/* MODULE SELECTORS */}
-      {!mode ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <FactoryCard title="Smart Word Template" desc="Map data to .docx {{tags}}." icon={FileType} color="blue" onClick={() => setMode('word')} />
-          <FactoryCard title="Visual PDF Overlay" desc="Drag & drop fields onto PDF." icon={FileText} color="red" onClick={() => setMode('pdf')} />
-        </div>
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-500"><Loader className="animate-spin"/> Loading Approved List...</div>
       ) : (
-        <div className="p-20 text-center border-2 border-dashed border-gray-700 rounded-2xl bg-black/20">
-          <h3 className="text-2xl font-bold text-gray-500 mb-4">Module Initializing...</h3>
-          <button onClick={() => setMode(null)} className="text-gold-400 hover:text-white underline">Cancel</button>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            
+            {merchants.length === 0 && (
+            <div className="col-span-3 text-center p-12 border border-dashed border-slate-700 rounded-xl bg-slate-800/30">
+                <AlertTriangle className="mx-auto text-slate-500 mb-4" />
+                <p className="text-slate-400 font-bold">No Approved Merchants</p>
+                <p className="text-slate-500 text-xs mt-1">Go to 'Profiles' and approve a merchant first.</p>
+            </div>
+            )}
+
+            {merchants.map(m => (
+            <motion.div 
+                key={m.merchant_id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-cyan-500/50 transition-all group"
+            >
+                <div className="flex justify-between items-start mb-4">
+                <div className="bg-cyan-900/30 p-3 rounded-lg text-cyan-400">
+                    <Check size={20} />
+                </div>
+                <span className="text-xs font-mono text-slate-500 bg-slate-900 px-2 py-1 rounded">{m.merchant_id}</span>
+                </div>
+                
+                <h3 className="font-bold text-lg mb-1 truncate text-white">{m.company_name}</h3>
+                <div className="flex gap-2 text-xs text-slate-400 mb-6">
+                    <span>{m.country}</span>
+                    <span>•</span>
+                    <span>{m.incorporation_date}</span>
+                </div>
+
+                <button
+                onClick={() => generatePDF(m)}
+                disabled={generating === m.merchant_id}
+                className="w-full bg-slate-700 hover:bg-cyan-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                {generating === m.merchant_id ? (
+                    <>
+                    <Loader size={18} className="animate-spin" />
+                    Generating...
+                    </>
+                ) : (
+                    <>
+                    <Download size={18} />
+                    Generate PDF
+                    </>
+                )}
+                </button>
+            </motion.div>
+            ))}
         </div>
       )}
     </div>
   );
-};
-
-const Gear = ({ size, color }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
-  </svg>
-);
-
-const FactoryCard = ({ title, desc, icon: Icon, color, onClick }) => (
-  <motion.div 
-    whileHover={{ y: -5 }}
-    onClick={onClick}
-    className={`group bg-obsidian-800 border border-gray-700 hover:border-${color}-500/50 p-10 rounded-2xl cursor-pointer transition-all shadow-2xl relative overflow-hidden`}
-  >
-    <div className={`absolute top-0 right-0 p-32 bg-${color}-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-${color}-500/10 transition-colors`}></div>
-    <div className={`w-16 h-16 rounded-2xl bg-black/50 flex items-center justify-center mb-6 border border-gray-700 group-hover:border-${color}-500/50 transition-colors`}>
-      <Icon className={`w-8 h-8 text-${color}-500`} />
-    </div>
-    <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
-    <p className="text-gray-400 mb-8 leading-relaxed">{desc}</p>
-    <div className={`flex items-center gap-2 text-${color}-400 font-bold uppercase text-xs tracking-widest group-hover:translate-x-2 transition-transform`}>
-      Launch Engine <ArrowRight size={16}/>
-    </div>
-  </motion.div>
-);
-
-export default Applications;
+}
