@@ -1,10 +1,11 @@
 import React from 'react';
-import { Outlet, useLocation, Link } from 'react-router-dom';
+import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, FileText, Menu, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const AdminLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,6 +14,14 @@ const AdminLayout = () => {
   ];
 
   const isActive = (path) => location.pathname === path;
+
+  // 🔒 LOGOUT LOGIC
+  const handleLogout = () => {
+    // 1. Clear the security key
+    sessionStorage.removeItem('finconnect_admin_auth');
+    // 2. Redirect to Login screen
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-obsidian-900 text-gray-100 font-sans flex flex-col md:flex-row">
@@ -41,7 +50,10 @@ const AdminLayout = () => {
         </nav>
 
         <div className="p-4 border-t border-gray-700">
-          <button className="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl w-full transition-colors" onClick={() => window.location.href = '/'}>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl w-full transition-colors"
+          >
             <LogOut size={20} />
             <span>Logout</span>
           </button>
@@ -56,7 +68,15 @@ const AdminLayout = () => {
           </div>
           <span className="font-bold text-white">Admin Portal</span>
         </div>
-        <Menu className="text-gold-400" />
+        
+        {/* Mobile Logout Button */}
+        <button 
+          onClick={handleLogout} 
+          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
+          title="Logout"
+        >
+          <LogOut size={20} />
+        </button>
       </header>
 
       {/* 🚀 MAIN CONTENT AREA */}
