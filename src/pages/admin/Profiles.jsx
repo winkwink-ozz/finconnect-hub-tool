@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../../services/api';
+[cite: 209] import React, { useState, useEffect } from 'react';
+[cite: 210] import { api } from '../../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Eye, AlertCircle, ExternalLink } from 'lucide-react';
 
 export default function Profiles() {
-  const [merchants, setMerchants] = useState([]);
-  const [selectedMerchant, setSelectedMerchant] = useState(null);
+  // ... (Same as before, no changes here)
+[cite: 211]   const [merchants, setMerchants] = useState([]);
+[cite: 212]   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,18 +15,19 @@ export default function Profiles() {
 
   const loadMerchants = async () => {
     try {
-      const data = await api.getAllMerchants();
-      setMerchants(data || []);
+[cite: 213]       const data = await api.getAllMerchants();
+[cite: 214]       setMerchants(data || []);
     } catch (e) {
       console.error("Failed to load merchants", e);
-    } finally {
+[cite: 215]     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 min-h-screen bg-slate-900 text-white">
-      <div className="flex justify-between items-center mb-8">
+[cite: 216]     <div className="p-6 min-h-screen bg-slate-900 text-white">
+      {/* ... (Rest of the component remains the same) */}
+[cite: 217]       <div className="flex justify-between items-center mb-8">
         <div>
            <h1 className="text-3xl font-bold text-yellow-500">Sniper Review Queue</h1>
            <p className="text-slate-400 mt-1">Verify AI Extraction against Original Documents</p>
@@ -82,32 +84,32 @@ export default function Profiles() {
 }
 
 function SniperModal({ merchant, onClose, onSave }) {
-  const [formData, setFormData] = useState({ ...merchant });
-  const [saving, setSaving] = useState(false);
+[cite: 221]   const [formData, setFormData] = useState({ ...merchant });
+[cite: 222]   const [saving, setSaving] = useState(false);
   const evidenceUrl = merchant.folder_url; 
 
   // 🛠️ HELPER: Try to make the Drive URL embeddable (Preview Mode)
-  const getEmbedUrl = (url) => {
-    if (!url) return null;
+[cite: 223]   const getEmbedUrl = (url) => {
+[cite: 224]     if (!url) return null;
     // If it's a folder, we can't easily embed it without auth.
     // If it's a file, replace /view with /preview
     return url.replace('/view', '/preview');
   };
 
-  const handleDecision = async (status) => {
+[cite: 225]   const handleDecision = async (status) => {
     setSaving(true);
     try {
-        await api.updateMerchant({ ...formData, status });
-        onSave();
+[cite: 226]         await api.updateMerchant({ ...formData, status });
+[cite: 227]         onSave();
     } catch (e) {
-        alert("Save failed");
-    } finally {
+      alert("Save failed");
+[cite: 228]     } finally {
         setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-6">
+[cite: 229]     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-6">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }} 
         animate={{ opacity: 1, scale: 1 }} 
@@ -117,18 +119,18 @@ function SniperModal({ merchant, onClose, onSave }) {
         <button onClick={onClose} className="absolute top-4 right-4 z-50 bg-slate-800 p-2 rounded-full text-white hover:bg-slate-700"><X size={20} /></button>
 
         {/* DATA EDITOR */}
-        <div className="w-1/3 p-8 border-r border-slate-700 overflow-y-auto bg-slate-900">
+[cite: 230]         <div className="w-1/3 p-8 border-r border-slate-700 overflow-y-auto bg-slate-900">
           <h2 className="text-xl font-bold text-yellow-500 mb-6 flex items-center gap-2"><AlertCircle size={20}/> Extracted Data</h2>
           
           <div className="space-y-4">
-            <Field label="Company Name" value={formData.company_name} onChange={v => setFormData({...formData, company_name: v})} />
+[cite: 231]             <Field label="Company Name" value={formData.company_name} onChange={v => setFormData({...formData, company_name: v})} />
             <Field label="Registration No" value={formData.registration_number} onChange={v => setFormData({...formData, registration_number: v})} />
             <Field label="Inc Date" value={formData.incorporation_date} onChange={v => setFormData({...formData, incorporation_date: v})} />
             <Field label="Country" value={formData.country} onChange={v => setFormData({...formData, country: v})} />
             <Field label="Registered Address" value={formData.registered_address} onChange={v => setFormData({...formData, registered_address: v})} type="textarea" />
           </div>
 
-          <div className="mt-8 flex gap-4">
+[cite: 232]           <div className="mt-8 flex gap-4">
             <button onClick={() => handleDecision('Approved')} disabled={saving} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold flex justify-center gap-2">
               <Check size={18} /> {saving ? 'Saving...' : 'Approve'}
             </button>
@@ -137,37 +139,37 @@ function SniperModal({ merchant, onClose, onSave }) {
         </div>
 
         {/* DOCUMENT VIEWER */}
-        <div className="w-2/3 bg-black flex flex-col relative group">
+[cite: 233]         <div className="w-2/3 bg-black flex flex-col relative group">
             <div className="bg-slate-800 py-2 px-4 text-xs text-slate-400 flex justify-between items-center">
                 <span>EVIDENCE VIEWER</span>
                 {evidenceUrl && (
-                    <a href={evidenceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:text-white">
+[cite: 234]                     <a href={evidenceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-gold-400 hover:text-white"> {/* ✅ FIXED: Gold Link */}
                         <ExternalLink size={12} /> Open in Drive
                     </a>
                 )}
             </div>
-            <div className="flex-1 flex items-center justify-center bg-slate-950 relative">
+[cite: 235]             <div className="flex-1 flex items-center justify-center bg-slate-950 relative">
                 {evidenceUrl ? (
                     <>
                         <iframe 
-                            src={getEmbedUrl(evidenceUrl)} 
+[cite_start][cite: 236]                             src={getEmbedUrl(evidenceUrl)} 
                             className="w-full h-full border-none opacity-50 group-hover:opacity-100 transition-opacity" 
                             title="Evidence" 
                         />
                         {/* Fallback Overlay if 403 happens */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+[cite: 238]                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                              <div className="bg-black/80 p-6 rounded-xl text-center pointer-events-auto border border-slate-700">
                                 <AlertCircle className="mx-auto text-yellow-500 mb-2" size={32}/>
                                 <p className="text-white font-bold mb-2">Access Restricted</p>
                                 <p className="text-xs text-slate-400 mb-4 max-w-xs">Google Drive folder permissions may prevent embedding.</p>
-                                <a href={evidenceUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold inline-flex items-center gap-2">
+[cite: 240]                                 <a href={evidenceUrl} target="_blank" rel="noopener noreferrer" className="bg-gold-gradient text-black px-4 py-3 rounded-lg text-sm font-bold inline-flex items-center gap-2 hover:scale-105 transition-transform"> {/* ✅ FIXED: Gold Gradient Button */}
                                     <ExternalLink size={16}/> Open Evidence Folder
                                 </a>
                              </div>
                         </div>
                     </>
                 ) : (
-                    <div className="text-slate-500">No Document Attached</div>
+[cite: 242]                     <div className="text-slate-500">No Document Attached</div>
                 )}
             </div>
         </div>
@@ -178,7 +180,7 @@ function SniperModal({ merchant, onClose, onSave }) {
 
 const Field = ({ label, value, onChange, type = "text" }) => (
   <div>
-    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{label}</label>
+[cite: 243]     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{label}</label>
     {type === "textarea" ? (
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-yellow-500 outline-none h-24" />
     ) : (
