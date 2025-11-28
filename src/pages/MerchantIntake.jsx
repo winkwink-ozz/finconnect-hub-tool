@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, Plus, Trash2, CheckCircle, Loader2, Save, Shield, ArrowLeft, Cpu, Eye, EyeOff, FileJson, Lock, FileText, User, X, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,7 +14,6 @@ const MerchantIntake = () => {
   const [debugData, setDebugData] = useState(null); 
   const [localData, setLocalData] = useState(null); 
   
-  // 🔔 TOAST STATE
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' }); 
 
   const [docType, setDocType] = useState(""); 
@@ -22,14 +21,13 @@ const MerchantIntake = () => {
     company_name: '', registration_number: '', incorporation_date: '',
     country: '', registered_address: '', operational_address: '',
     file_id: '', folder_url: '', folder_id: '',
-    uploaded_files: [] // Array to store all file IDs
+    uploaded_files: [] 
   });
 
   const [officers, setOfficers] = useState([
     { id: 1, full_name: '', role: '', dob: '', passport_number: '', residential_address: '', doc_type: '', file_id: '', uploaded_files: [] }
   ]);
 
-  // --- HELPERS ---
   const showToast = (message, type = 'error') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
@@ -68,8 +66,6 @@ const MerchantIntake = () => {
     return options.length > 0 ? options : [{ val: "", label: "All Data Extracted!" }];
   };
 
-  // --- HANDLERS ---
-
   const handleAnalysis = async (file, category, context, officerId = null) => {
     if (!file) return;
     setAnalyzing(true);
@@ -84,7 +80,7 @@ const MerchantIntake = () => {
       
       const aiData = geminiResult.analysis || {};
       const fileId = geminiResult.file_id;
-      const newFileObj = { id: fileId, type: category }; // Store ID + Type
+      const newFileObj = { id: fileId, type: category };
 
       setDebugData(aiData); 
       setLocalData(tesseractData); 
@@ -93,7 +89,7 @@ const MerchantIntake = () => {
         setCompany(prev => ({
           ...prev,
           file_id: fileId,
-          uploaded_files: [...(prev.uploaded_files || []), newFileObj], // Accumulate files
+          uploaded_files: [...(prev.uploaded_files || []), newFileObj],
           company_name:        getVal(aiData.company_name, tesseractData.company_name) || prev.company_name,
           registration_number: getVal(aiData.registration_number, tesseractData.registration_number) || prev.registration_number,
           incorporation_date:  getVal(aiData.incorporation_date, tesseractData.incorporation_date) || prev.incorporation_date,
@@ -108,7 +104,7 @@ const MerchantIntake = () => {
         setOfficers(prev => prev.map(o => o.id === officerId ? {
           ...o,
           file_id: fileId,
-          uploaded_files: [...(o.uploaded_files || []), newFileObj], // Accumulate files
+          uploaded_files: [...(o.uploaded_files || []), newFileObj],
           doc_type: "", 
           full_name:         getVal(aiData.full_name, o.full_name),
           dob:               getVal(aiData.dob, tesseractData.dob) || o.dob,
@@ -127,7 +123,6 @@ const MerchantIntake = () => {
   };
 
   const saveCompanyStep = async () => {
-    // Strict Validation
     const missing = [];
     if (!company.company_name) missing.push("Company Name");
     if (!company.registration_number) missing.push("Registration Number");
@@ -142,22 +137,21 @@ const MerchantIntake = () => {
 
     setLoading(true);
     try {
-      // 🛠️ FIX: Send the Accumulated File List to Backend
-      // If uploaded_files is empty (manual entry?), try fallback to single file_id
       let filesPayload = company.uploaded_files;
       if ((!filesPayload || filesPayload.length === 0) && company.file_id) {
         filesPayload = [{ id: company.file_id, type: 'LEGACY' }];
       }
 
       const res = await api.initMerchant({ ...company, file_ids: filesPayload });
-      
       if (res.status === 'success') {
-        setCompany(prev => ({ ...prev, merchant_id: res.data.merchant_id, folder_url: res.data.folder_url, folder_id: res.data.folder_id }));
-        
-        // 🧹 FIX: CLEAR DEBUG DATA SO IT DOESN'T SHOW IN STEP 2
+        setCompany(prev => ({ 
+          ...prev, 
+          merchant_id: res.data.merchant_id, 
+          folder_url: res.data.folder_url,
+          folder_id: res.data.folder_id
+        }));
         setDebugData(null);
         setLocalData(null);
-        
         setStep(2); 
         showToast("Entity Details Saved", "success");
       }
@@ -177,23 +171,18 @@ const MerchantIntake = () => {
     setLoading(true);
     try {
       const promises = officers.map(officer => {
-        // 🛠️ FIX: Send Officer File List
         let filesPayload = officer.uploaded_files;
-        if ((!filesPayload || filesPayload.length === 0) && officer.file_id) {
-          filesPayload = [{ id: officer.file_id, type: 'LEGACY_OFFICER' }];
-        }
+        if ((!filesPayload || filesPayload.length === 0) && officer.file_id) filesPayload = [{ id: officer.file_id, type: 'LEGACY_OFFICER' }];
         
         return api.saveOfficer({ 
           ...officer, 
           merchant_id: company.merchant_id, 
-          folder_id: company.folder_id, // Pass the folder ID we got from step 1
+          folder_id: company.folder_id,
           file_ids: filesPayload
         });
       });
-
       await Promise.all(promises);
       api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Submitted with ${officers.length} officers`);
-      
       showToast("Onboarding Complete! Redirecting...", "success");
       setTimeout(() => window.location.href = "/", 2000); 
     } catch (err) { showToast("Submission Error: " + err.message, "error"); } 
@@ -203,7 +192,6 @@ const MerchantIntake = () => {
   return (
     <div className="max-w-[1400px] mx-auto p-6 text-gray-100 pb-20 font-sans relative">
       
-      {/* 🔔 TOAST NOTIFICATION */}
       <AnimatePresence>
         {toast.show && (
           <motion.div 
@@ -219,7 +207,6 @@ const MerchantIntake = () => {
         )}
       </AnimatePresence>
 
-      {/* HEADER */}
       <div className="mb-8 border-b border-gray-800 pb-6 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-6">
           <Link to="/">
@@ -238,7 +225,6 @@ const MerchantIntake = () => {
         </div>
       </div>
 
-      {/* LOADERS */}
       {analyzing && (
         <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 backdrop-blur-sm">
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-6 relative">
@@ -250,7 +236,6 @@ const MerchantIntake = () => {
       )}
       {loading && !analyzing && <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"><Loader2 className="w-12 h-12 animate-spin text-gold-400" /></div>}
 
-      {/* STEP 1: ENTITY */}
       {step === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-8">
@@ -333,7 +318,6 @@ const MerchantIntake = () => {
         </div>
       )}
 
-      {/* STEP 2: OFFICERS */}
       {step === 2 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2 space-y-6">
