@@ -1,7 +1,12 @@
 import axios from 'axios';
 
-// 🚀 YOUR LIVE BACKEND URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbx74tEsxqCNcg78-mgEkPUdXBo8BluJ9GrsLoakNVKavsrMCUxDRp9kTYgYDWWZaa3L/exec';
+// 🚀 ENV CONFIGURATION
+const API_URL = import.meta.env.VITE_API_URL;
+const API_SECRET = import.meta.env.VITE_API_SECRET;
+
+if (!API_URL || !API_SECRET) {
+  console.error("CRITICAL: VITE_API_URL or VITE_API_SECRET is missing in .env file");
+}
 
 export const api = {
   // --- READ OPERATIONS (ADMIN) ---
@@ -15,7 +20,11 @@ export const api = {
     return res.data;
   },
 
-  // --- WRITE OPERATIONS (ADMIN) ---
+  getFolderFiles: async (folderId) => {
+    const res = await postRequest('GET_FOLDER_FILES', { folder_id: folderId });
+    return res.data;
+  },
+
   updateMerchant: async (data) => {
     return await postRequest('UPDATE_MERCHANT', data);
   },
@@ -42,16 +51,20 @@ export const api = {
   },
 
   initMerchant: async (data) => postRequest('INIT_MERCHANT', data),
-  
   saveOfficer: async (data) => postRequest('SAVE_OFFICER', data),
-  
   logAudit: async (action, merchantId, details) => postRequest('LOG_AUDIT', { user_action: action, target_merchant_id: merchantId, details })
 };
 
-// Helper function to handle GAS CORS and Error wrapping
+// Helper function to handle GAS CORS and Authentication
 async function postRequest(action, payload) {
   try {
-    const response = await axios.post(API_URL, JSON.stringify({ action, payload }), {
+    const body = JSON.stringify({
+      action,
+      payload,
+      auth_token: API_SECRET // 🔒 INJECT SECRET
+    });
+
+    const response = await axios.post(API_URL, body, {
       headers: { 'Content-Type': 'text/plain' }
     });
     
