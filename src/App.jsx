@@ -1,8 +1,11 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MerchantIntake from './pages/MerchantIntake';
-import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
+import AdminLayout from './components/AdminLayout'; // The new wrapper
+import Dashboard from './pages/admin/Dashboard';
+import Profiles from './pages/admin/Profiles';
+import Applications from './pages/admin/Applications';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const App = () => {
@@ -10,19 +13,19 @@ const App = () => {
     <Router>
       <div className="min-h-screen bg-obsidian-900 text-gray-100 font-sans">
         <Routes>
-          {/* 1. PUBLIC ROUTES 
-             If user hits root '/', send them to onboarding (Client friendly)
-          */}
+          {/* Public Routes */}
           <Route path="/" element={<Navigate to="/onboard" replace />} />
           <Route path="/onboard" element={<MerchantIntake />} />
           <Route path="/login" element={<AdminLogin />} />
 
-          {/* 2. PROTECTED ADMIN ROUTES 
-             Everything inside here requires the password
-          */}
+          {/* Protected Admin Routes */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            {/* Future: Route path="/admin/merchant/:id" element={<MerchantDetail />} */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="profiles" element={<Profiles />} />
+              <Route path="applications" element={<Applications />} />
+            </Route>
           </Route>
 
         </Routes>
