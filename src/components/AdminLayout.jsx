@@ -9,7 +9,7 @@ const AdminLayout = () => {
   const navItems = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/admin/profiles', label: 'Profiles', icon: Users },
-    { path: '/admin/applications', label: 'App Factory', icon: FileText },
+    { path: '/admin/applications', label: 'Application Factory', icon: FileText }, // Renamed
   ];
 
   const isActive = (path) => location.pathname === path;
