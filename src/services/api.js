@@ -1,77 +1,72 @@
 import axios from 'axios';
 
-// 🚀 ENV CONFIGURATION
+// Load Environment Variables
 const API_URL = import.meta.env.VITE_API_URL;
 const API_SECRET = import.meta.env.VITE_API_SECRET;
 
-if (!API_URL || !API_SECRET) {
-  console.error("CRITICAL: VITE_API_URL or VITE_API_SECRET is missing in .env file");
-}
+const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    // Standard headers (CORS is handled by GAS script or proxy)
+    'Content-Type': 'text/plain', // Keep text/plain for GAS compatibility
+  },
+});
 
 export const api = {
-  // --- READ OPERATIONS (ADMIN) ---
-  getMerchants: async () => {
-    const res = await postRequest('GET_ALL_MERCHANTS', {});
-    return res.data;
+  // Generic POST wrapper
+  post: async (action, payload = {}) => {
+    try {
+      // GAS expects stringified body to avoid OPTIONS preflight issues
+      const body = JSON.stringify({
+        auth_token: API_SECRET,
+        action: action,
+        payload: payload,
+      });
+
+      const response = await apiClient.post('', body);
+      
+      if (response.data.status === 'error') {
+        throw new Error(response.data.message);
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error(`API Error [${action}]:`, error);
+      throw error;
+    }
   },
 
-  getMerchantDetails: async (id) => {
-    const res = await postRequest('GET_MERCHANT_FULL', { merchant_id: id });
-    return res.data;
-  },
+  // --- MERCHANT OPERATIONS ---
+  getAllMerchants: () => api.post('GET_ALL_MERCHANTS'),
+  
+  // Updated to match your GAS 'INIT_MERCHANT'
+  initMerchant: (data) => api.post('INIT_MERCHANT', data), 
+  
+  updateMerchant: (data) => api.post('UPDATE_MERCHANT', data),
+  
+  saveOfficer: (data) => api.post('SAVE_OFFICER', data),
 
-  getFolderFiles: async (folderId) => {
-    const res = await postRequest('GET_FOLDER_FILES', { folder_id: folderId });
-    return res.data;
-  },
-
-  updateMerchant: async (data) => {
-    return await postRequest('UPDATE_MERCHANT', data);
-  },
-
-  // --- WRITE OPERATIONS (ONBOARDING) ---
-  analyzeDocument: async (file, category) => { 
+  // --- AI OPERATIONS (Required for MerchantIntake) ---
+  analyzeDocument: async (file, category) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = async () => {
-        try {
-          const base64 = reader.result.split(',')[1]; 
-          const response = await postRequest('ANALYZE_DOCUMENT', {
-            fileBase64: base64,
-            mimeType: file.type,
-            fileName: file.name,
-            docCategory: category
-          });
-          resolve(response.data);
-        } catch (e) { reject(e); }
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        api.post('ANALYZE_DOCUMENT', {
+          fileBase64: base64,
+          fileName: file.name,
+          mimeType: file.type,
+          docCategory: category
+        }).then(resolve).catch(reject);
       };
-      reader.onerror = error => reject(error);
+      reader.onerror = (error) => reject(error);
     });
   },
 
-  initMerchant: async (data) => postRequest('INIT_MERCHANT', data),
-  saveOfficer: async (data) => postRequest('SAVE_OFFICER', data),
-  logAudit: async (action, merchantId, details) => postRequest('LOG_AUDIT', { user_action: action, target_merchant_id: merchantId, details })
+  // --- LOGGING ---
+  logAudit: (action, merchantId, details) => api.post('LOG_AUDIT', {
+    user_action: action,
+    target_merchant_id: merchantId,
+    details: details
+  })
 };
-
-// Helper function to handle GAS CORS and Authentication
-async function postRequest(action, payload) {
-  try {
-    const body = JSON.stringify({
-      action,
-      payload,
-      auth_token: API_SECRET // 🔒 INJECT SECRET
-    });
-
-    const response = await axios.post(API_URL, body, {
-      headers: { 'Content-Type': 'text/plain' }
-    });
-    
-    if (response.data.status === 'error') throw new Error(response.data.message);
-    return response.data;
-  } catch (error) {
-    console.error(`API Error [${action}]:`, error);
-    throw error;
-  }
-}
