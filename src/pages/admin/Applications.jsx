@@ -8,92 +8,75 @@ const Applications = () => {
   return (
     <div className="space-y-12">
       
-      {/* 🏭 HERO SECTION: FACTORY ANIMATION */}
-      <div className="relative h-72 bg-gradient-to-br from-obsidian-900 to-obsidian-800 rounded-3xl border border-gray-700 overflow-hidden flex items-center justify-center shadow-2xl">
+      {/* 🏭 FACTORY HEADER ANIMATION */}
+      <div className="relative h-80 bg-gradient-to-b from-obsidian-900 to-black rounded-3xl border border-gray-700 overflow-hidden flex items-end justify-center shadow-2xl">
         
-        {/* Animated Background Grid */}
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
-        
-        {/* ⚙️ GEARS */}
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -left-10 top-10 w-64 h-64 border-4 border-gold-500/10 rounded-full border-dashed opacity-50"
-        />
-        <motion.div 
-          animate={{ rotate: -360 }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute -right-10 bottom-10 w-96 h-96 border-4 border-blue-500/10 rounded-full border-dotted opacity-50"
-        />
-
-        {/* 💨 SMOKE PARTICLES */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-           {[...Array(6)].map((_, i) => (
-             <motion.div
+        {/* SMOKE STACKS */}
+        <div className="absolute top-20 left-1/3 flex gap-4">
+           {[0, 1, 2].map(i => (
+             <motion.div 
                key={i}
-               className="absolute top-0 left-1/2 w-4 h-4 bg-white/5 rounded-full blur-xl"
-               animate={{
-                 y: [-20, -150],
-                 x: [0, (i % 2 === 0 ? 30 : -30)],
-                 opacity: [0, 0.5, 0],
-                 scale: [1, 3]
-               }}
-               transition={{
-                 duration: 4,
-                 repeat: Infinity,
-                 delay: i * 0.5,
-                 ease: "easeOut"
-               }}
+               initial={{ y: 0, opacity: 0.8, scale: 1 }}
+               animate={{ y: -100, opacity: 0, scale: 2 }}
+               transition={{ duration: 3, repeat: Infinity, delay: i * 0.8, ease: "easeOut" }}
+               className="w-8 h-8 bg-white/10 rounded-full blur-xl"
              />
            ))}
         </div>
 
-        {/* CONTENT */}
-        <div className="relative z-10 text-center space-y-4">
+        {/* FACTORY SVG STRUCTURE */}
+        <svg width="600" height="200" viewBox="0 0 600 200" className="text-gray-800 fill-current z-10">
+           <path d="M50,200 L50,100 L100,50 L150,100 L150,200 Z" /> {/* Stack 1 */}
+           <path d="M160,200 L160,80 L210,30 L260,80 L260,200 Z" /> {/* Stack 2 */}
+           <rect x="300" y="100" width="200" height="100" /> {/* Main Building */}
+           <rect x="0" y="190" width="600" height="10" className="fill-gray-700"/> {/* Floor */}
+        </svg>
+
+        {/* ANIMATED GEARS */}
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} className="absolute bottom-8 left-[320px] z-20">
+           <Gear size={60} color="#D4AF37" />
+        </motion.div>
+        <motion.div animate={{ rotate: -360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} className="absolute bottom-8 left-[375px] z-20">
+           <Gear size={40} color="#4A90E2" />
+        </motion.div>
+
+        {/* TITLE OVERLAY */}
+        <div className="absolute top-10 w-full text-center z-30">
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold-500/10 text-gold-400 text-xs font-bold uppercase tracking-widest border border-gold-500/20 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold-500/10 text-gold-400 text-xs font-bold uppercase tracking-widest border border-gold-500/20"
           >
             <Cpu size={14} /> FinConnect Core
           </motion.div>
-          <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gold-gradient tracking-tight drop-shadow-lg">
+          <h1 className="text-5xl font-bold text-white mt-4 tracking-tight drop-shadow-2xl">
             Application Factory
           </h1>
-          <p className="text-gray-400 text-lg max-w-lg mx-auto">
-            Automated document mapping & generation engine.
-          </p>
         </div>
       </div>
 
       {/* MODULE SELECTORS */}
       {!mode ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <FactoryCard 
-            title="Smart Word Template"
-            desc="Upload .docx files with {{tags}}. Perfect for flexible legal agreements and contracts."
-            icon={FileType}
-            color="blue"
-            onClick={() => setMode('word')}
-          />
-          <FactoryCard 
-            title="Visual PDF Overlay"
-            desc="Upload .pdf banking forms. Drag-and-drop database fields onto specific coordinates."
-            icon={FileText}
-            color="red"
-            onClick={() => setMode('pdf')}
-          />
+          <FactoryCard title="Smart Word Template" desc="Map data to .docx {{tags}}." icon={FileType} color="blue" onClick={() => setMode('word')} />
+          <FactoryCard title="Visual PDF Overlay" desc="Drag & drop fields onto PDF." icon={FileText} color="red" onClick={() => setMode('pdf')} />
         </div>
       ) : (
         <div className="p-20 text-center border-2 border-dashed border-gray-700 rounded-2xl bg-black/20">
-          <h3 className="text-2xl font-bold text-gray-500 mb-4">Initializing Module...</h3>
-          <p className="text-gray-600 mb-8">Connecting to Document Generation Engine.</p>
-          <button onClick={() => setMode(null)} className="text-gold-400 hover:text-white underline font-semibold">Cancel & Go Back</button>
+          <h3 className="text-2xl font-bold text-gray-500 mb-4">Module Initializing...</h3>
+          <button onClick={() => setMode(null)} className="text-gold-400 hover:text-white underline">Cancel</button>
         </div>
       )}
     </div>
   );
 };
+
+const Gear = ({ size, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+  </svg>
+);
 
 const FactoryCard = ({ title, desc, icon: Icon, color, onClick }) => (
   <motion.div 
