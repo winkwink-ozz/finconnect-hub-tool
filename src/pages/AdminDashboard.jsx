@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../services/api'; // ✅ FIXED: Correct relative path
+import { api } from '../services/api'; // ✅ FIXED PATH
 import { Users, FileCheck, Clock, AlertTriangle, TrendingUp, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -13,9 +13,7 @@ const AdminDashboard = () => {
 
   const loadStats = async () => {
     try {
-      // Fetch all data to calculate stats locally
       const data = await api.getAllMerchants();
-      
       setStats({
         total: data.length,
         pending: data.filter(m => m.status === 'Pending Review').length,
@@ -35,11 +33,6 @@ const AdminDashboard = () => {
       opacity: 1,
       transition: { staggerChildren: 0.1 }
     }
-  };
-
-  const item = {
-    hidden: { y: 20, opacity: 0 },
-    show: { y: 0, opacity: 1 }
   };
 
   return (
@@ -71,15 +64,14 @@ const AdminDashboard = () => {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Activity Stream Placeholder */}
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="lg:col-span-2 bg-obsidian-800 rounded-2xl border border-gray-700 p-6 shadow-xl"
+            className="lg:col-span-2 bg-slate-800 rounded-2xl border border-gray-700 p-6 shadow-xl"
         >
             <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-gold-500/10 rounded-lg text-gold-400"><Activity size={20}/></div>
+                <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400"><Activity size={20}/></div>
                 <h3 className="text-lg font-bold text-white">Live Activity Stream</h3>
             </div>
             <div className="space-y-4">
@@ -95,12 +87,11 @@ const AdminDashboard = () => {
             </div>
         </motion.div>
 
-        {/* System Health */}
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-obsidian-800 rounded-2xl border border-gray-700 p-6 shadow-xl"
+            className="bg-slate-800 rounded-2xl border border-gray-700 p-6 shadow-xl"
         >
              <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><TrendingUp size={20}/></div>
@@ -117,8 +108,7 @@ const AdminDashboard = () => {
   );
 };
 
-// Sub-Components
-const StatCard = ({ icon: Icon, label, value, color, delay }) => {
+const StatCard = ({ icon: Icon, label, value, color }) => {
     const colors = {
         blue: "text-blue-400 border-blue-500/30 hover:border-blue-500",
         yellow: "text-yellow-400 border-yellow-500/30 hover:border-yellow-500",
@@ -127,13 +117,12 @@ const StatCard = ({ icon: Icon, label, value, color, delay }) => {
     };
     
     return (
-        <motion.div variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className={`p-6 rounded-2xl bg-obsidian-800 border ${colors[color]} shadow-xl transition-all group relative overflow-hidden`}>
+        <motion.div variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className={`p-6 rounded-2xl bg-slate-800 border ${colors[color]} shadow-xl transition-all group relative overflow-hidden`}>
             <div className="relative z-10">
                 <div className="flex justify-between items-start mb-4">
                     <div className={`p-3 rounded-xl bg-black/40 ${colors[color].split(' ')[0]}`}>
                         <Icon size={24} />
                     </div>
-                    {/* Glowing Orb Effect */}
                     <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full blur-3xl opacity-10 bg-current ${colors[color].split(' ')[0]}`}></div>
                 </div>
                 <div className="space-y-1">
