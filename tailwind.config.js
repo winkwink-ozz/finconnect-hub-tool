@@ -7,11 +7,13 @@ export default {
   theme: {
     extend: {
       backgroundImage: {
-        'gold-gradient': 'linear-gradient(145deg, #F0D788, #DDAA33)',
+        // 🎨 THE PREMIUM GRADIENT
+        'gold-gradient': 'linear-gradient(145deg, #F0D788, #DDAA33)', 
+        'glass': 'linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
       },
       colors: {
         gold: {
-          400: '#D4AF37', // Kept for text highlights
+          400: '#D4AF37', 
           500: '#C5A028',
         },
         obsidian: {
