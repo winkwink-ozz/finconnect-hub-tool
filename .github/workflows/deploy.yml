@@ -24,7 +24,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      # ⚡ CRITICAL CHANGE HERE: Inject Secrets during Build
       - name: Build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_SECRET: ${{ secrets.VITE_API_SECRET }}
         run: npm run build
 
       - name: Upload artifact
