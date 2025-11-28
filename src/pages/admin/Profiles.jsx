@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Eye, AlertCircle } from 'lucide-react';
+import { X, Check, Eye, AlertCircle, ExternalLink } from 'lucide-react';
 
 export default function Profiles() {
   const [merchants, setMerchants] = useState([]);
@@ -86,6 +86,14 @@ function SniperModal({ merchant, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const evidenceUrl = merchant.folder_url; 
 
+  // 🛠️ HELPER: Try to make the Drive URL embeddable (Preview Mode)
+  const getEmbedUrl = (url) => {
+    if (!url) return null;
+    // If it's a folder, we can't easily embed it without auth.
+    // If it's a file, replace /view with /preview
+    return url.replace('/view', '/preview');
+  };
+
   const handleDecision = async (status) => {
     setSaving(true);
     try {
@@ -129,11 +137,35 @@ function SniperModal({ merchant, onClose, onSave }) {
         </div>
 
         {/* DOCUMENT VIEWER */}
-        <div className="w-2/3 bg-black flex flex-col">
-            <div className="bg-slate-800 py-2 px-4 text-xs text-slate-400 text-right">EVIDENCE VIEWER</div>
-            <div className="flex-1 flex items-center justify-center bg-slate-950">
+        <div className="w-2/3 bg-black flex flex-col relative group">
+            <div className="bg-slate-800 py-2 px-4 text-xs text-slate-400 flex justify-between items-center">
+                <span>EVIDENCE VIEWER</span>
+                {evidenceUrl && (
+                    <a href={evidenceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:text-white">
+                        <ExternalLink size={12} /> Open in Drive
+                    </a>
+                )}
+            </div>
+            <div className="flex-1 flex items-center justify-center bg-slate-950 relative">
                 {evidenceUrl ? (
-                    <iframe src={evidenceUrl} className="w-full h-full border-none" title="Evidence" />
+                    <>
+                        <iframe 
+                            src={getEmbedUrl(evidenceUrl)} 
+                            className="w-full h-full border-none opacity-50 group-hover:opacity-100 transition-opacity" 
+                            title="Evidence" 
+                        />
+                        {/* Fallback Overlay if 403 happens */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                             <div className="bg-black/80 p-6 rounded-xl text-center pointer-events-auto border border-slate-700">
+                                <AlertCircle className="mx-auto text-yellow-500 mb-2" size={32}/>
+                                <p className="text-white font-bold mb-2">Access Restricted</p>
+                                <p className="text-xs text-slate-400 mb-4 max-w-xs">Google Drive folder permissions may prevent embedding.</p>
+                                <a href={evidenceUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold inline-flex items-center gap-2">
+                                    <ExternalLink size={16}/> Open Evidence Folder
+                                </a>
+                             </div>
+                        </div>
+                    </>
                 ) : (
                     <div className="text-slate-500">No Document Attached</div>
                 )}
