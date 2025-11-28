@@ -1,25 +1,22 @@
 import Tesseract from 'tesseract.js';
+import { parseOCRText } from './parsers';
 
-export const runOCR = async (file, onProgress) => {
+export const runSyntaxEngine = async (file, category) => {
   try {
-    const result = await Tesseract.recognize(
-      file,
-      'eng',
-      {
-        logger: m => {
-          if (m.status === 'recognizing text' && onProgress) {
-            onProgress(parseInt(m.progress * 100));
-          }
-        }
-      }
-    );
-    
+    const result = await Tesseract.recognize(file, 'eng', {
+      logger: m => console.log(`[OCR] ${m.status}: ${Math.round(m.progress * 100)}%`)
+    });
+
+    const rawText = result.data.text;
+    const extracted = parseOCRText(rawText, category);
+
     return {
-      text: result.data.text,
-      words: result.data.words 
+      source: 'TESSERACT',
+      raw_text: rawText,
+      data: extracted
     };
   } catch (error) {
-    console.error("OCR Failed", error);
-    throw new Error("Failed to scan document");
+    console.error("OCR Failed:", error);
+    return { source: 'TESSERACT', data: {}, error: error.message };
   }
 };
