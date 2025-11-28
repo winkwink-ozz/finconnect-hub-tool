@@ -5,7 +5,6 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbx74tEsxqCNcg78-mgEkPUd
 
 export const api = {
   // --- READ OPERATIONS (ADMIN) ---
-  // 🟢 This is the function that was missing!
   getMerchants: async () => {
     const res = await postRequest('GET_ALL_MERCHANTS', {});
     return res.data;
@@ -16,7 +15,12 @@ export const api = {
     return res.data;
   },
 
-  // --- WRITE OPERATIONS (MERCHANT) ---
+  // --- WRITE OPERATIONS (ADMIN) ---
+  updateMerchant: async (data) => {
+    return await postRequest('UPDATE_MERCHANT', data);
+  },
+
+  // --- WRITE OPERATIONS (ONBOARDING) ---
   analyzeDocument: async (file, category) => { 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -44,7 +48,7 @@ export const api = {
   logAudit: async (action, merchantId, details) => postRequest('LOG_AUDIT', { user_action: action, target_merchant_id: merchantId, details })
 };
 
-// Helper function
+// Helper function to handle GAS CORS and Error wrapping
 async function postRequest(action, payload) {
   try {
     const response = await axios.post(API_URL, JSON.stringify({ action, payload }), {
