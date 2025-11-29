@@ -116,7 +116,7 @@ const MerchantIntake = () => {
                 ...o,
                 file_id: fileId,
                 uploaded_files: [...(o.uploaded_files || []), newFileObj],
-                doc_type: "", // Reset after upload
+                doc_type: "", 
                 full_name: getVal(aiData.full_name, o.full_name),
                 dob: getVal(aiData.dob, tessData.dob) || o.dob,
                 passport_number: getVal(aiData.passport_number, tessData.passport_number) || o.passport_number,
@@ -161,6 +161,7 @@ const MerchantIntake = () => {
     const missing = [];
     if (!company.company_name) missing.push("Company Name");
     if (!company.registration_number) missing.push("Registration Number");
+    
     if (missing.length > 0) { showToast(`Missing: ${missing.join(', ')}`, "error"); return; }
 
     setLoading(true);
@@ -279,12 +280,14 @@ const MerchantIntake = () => {
                             {showDebug ? <EyeOff size={14}/> : <Eye size={14}/>} {showDebug ? 'Hide Analysis' : 'View AI Analysis'}
                         </button>
                     </div>
+                    
                     <div className="mb-6">
                         <select value={docType} onChange={(e) => setDocType(e.target.value)} className="w-full bg-obsidian-900 border border-gold-500/30 rounded-lg p-3 text-white focus:outline-none focus:border-gold-400">
                             <option value="">-- Choose Document --</option>
                             {getEntityDocOptions().map(opt => ( <option key={opt.val} value={opt.val}>{opt.label}</option> ))}
                         </select>
                     </div>
+                    
                     {docType && docType !== "" ? (
                         <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer hover:border-gold-400 hover:bg-gray-800/50 transition-all group">
                             <div className="flex flex-col items-center justify-center pt-2">
@@ -334,7 +337,7 @@ const MerchantIntake = () => {
         </div>
       )}
 
-      {/* STEP 2: OFFICERS (FIXED: Added Uploads Back) */}
+      {/* STEP 2: OFFICERS */}
       {step === 2 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2 space-y-6">
