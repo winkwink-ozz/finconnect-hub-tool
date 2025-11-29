@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, Menu, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Menu, LogOut, PenTool } from 'lucide-react';
 
 const AdminLayout = () => {
   const location = useLocation();
@@ -9,7 +9,8 @@ const AdminLayout = () => {
   const navItems = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/admin/profiles', label: 'Profiles', icon: Users },
-    { path: '/admin/applications', label: 'Application Factory', icon: FileText }, // Renamed
+    { path: '/admin/applications', label: 'Application Factory', icon: FileText },
+    { path: '/admin/builder', label: 'Form Builder', icon: PenTool }, // 🆕 Added Builder
   ];
 
   const isActive = (path) => location.pathname === path;
