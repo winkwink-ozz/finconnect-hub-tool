@@ -10,15 +10,13 @@ const MerchantIntake = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
+  const [showDebug, setShowDebug] = useState(false); // ✅ RESTORED DEBUG STATE
   
-  // Debug Data State
   const [debugData, setDebugData] = useState(null);
   const [localData, setLocalData] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const [docType, setDocType] = useState("");
 
-  // Step 1 & 2 Data
   const [company, setCompany] = useState({
     company_name: '', registration_number: '', incorporation_date: '',
     country: '', registered_address: '', operational_address: '',
@@ -29,7 +27,6 @@ const MerchantIntake = () => {
     { id: 1, full_name: '', role: '', dob: '', passport_number: '', residential_address: '', doc_type: '', file_id: '', uploaded_files: [] }
   ]);
 
-  // Step 3 Data (Questionnaires)
   const [availableForms, setAvailableForms] = useState([]);
   const [answers, setAnswers] = useState({});
 
@@ -47,11 +44,8 @@ const MerchantIntake = () => {
     return "";
   };
 
-  // --- LOGIC: FETCH FORMS (STEP 3) ---
   useEffect(() => {
-    if (step === 3) {
-        loadQuestionnaires();
-    }
+    if (step === 3) loadQuestionnaires();
   }, [step]);
 
   const loadQuestionnaires = async () => {
@@ -76,7 +70,6 @@ const MerchantIntake = () => {
     }));
   };
 
-  // --- LOGIC: DUAL-ENGINE ANALYSIS ---
   const handleAnalysis = async (file, category, context, officerId = null) => {
     if (!file) return;
     setAnalyzing(true);
@@ -101,6 +94,7 @@ const MerchantIntake = () => {
 
         setDebugData(aiData);
         setLocalData(tessData);
+        if(!showDebug) setShowDebug(true); // Auto-show debug on scan
 
         if (context === 'COMPANY') {
             setCompany(prev => ({
@@ -139,7 +133,6 @@ const MerchantIntake = () => {
     }
   };
 
-  // ... (Dropdown helpers remain same)
   const getEntityDocOptions = () => {
     const options = [];
     if (!company.company_name || !company.registration_number || !company.incorporation_date) {
@@ -165,27 +158,44 @@ const MerchantIntake = () => {
   };
 
   const saveCompanyStep = async () => {
-    // ... validation logic ...
     const missing = [];
     if (!company.company_name) missing.push("Company Name");
-    if (missing.length > 0) { showToast(`Missing: ${missing.join(', ')}`, "error"); return; }
+    if (!company.registration_number) missing.push("Registration Number");
+    
+    if (missing.length > 0) { 
+        showToast(`Missing: ${missing.join(', ')}`, "error"); 
+        return; 
+    }
 
     setLoading(true);
     try {
         let filesPayload = company.uploaded_files;
         if ((!filesPayload || filesPayload.length === 0) && company.file_id) filesPayload = [{ id: company.file_id, type: 'LEGACY' }];
         
+        // Ensure API call works, even if backend returns minimal data
         const res = await api.initMerchant({ ...company, file_ids: filesPayload });
-        if (res.status === 'success') {
-            setCompany(prev => ({ ...prev, merchant_id: res.data.merchant_id, folder_url: res.data.folder_url, folder_id: res.data.folder_id }));
-            setStep(2);
+        
+        // ✅ CRITICAL FIX: Ensure we move to Step 2
+        if (res && (res.status === 'success' || res.merchant_id)) {
+            setCompany(prev => ({ 
+                ...prev, 
+                merchant_id: res.data?.merchant_id || res.merchant_id, 
+                folder_url: res.data?.folder_url || res.folder_url, 
+                folder_id: res.data?.folder_id || res.folder_id 
+            }));
+            setStep(2); // Move to Officers
             showToast("Entity Details Saved", "success");
+        } else {
+            throw new Error("Invalid response from server");
         }
-    } catch (err) { showToast("Save Failed: " + err.message, "error"); } finally { setLoading(false); }
+    } catch (err) { 
+        showToast("Save Failed: " + err.message, "error"); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const saveOfficersStep = async () => {
-    // ... validation ...
     setLoading(true);
     try {
         const promises = officers.map(officer => {
@@ -194,7 +204,7 @@ const MerchantIntake = () => {
             return api.saveOfficer({ ...officer, merchant_id: company.merchant_id, folder_id: company.folder_id, file_ids: filesPayload });
         });
         await Promise.all(promises);
-        setStep(3); // 🚀 GO TO STEP 3
+        setStep(3); // Move to Compliance
         showToast("Officers Saved. Loading Questionnaires...", "success");
     } catch (err) { showToast("Error: " + err.message, "error"); } finally { setLoading(false); }
   };
@@ -202,7 +212,6 @@ const MerchantIntake = () => {
   const submitFinalApplication = async () => {
     setLoading(true);
     try {
-        // Save all Questionnaire Answers
         const promises = availableForms.map(form => {
             const formAnswers = answers[form.id];
             if (formAnswers) {
@@ -216,7 +225,6 @@ const MerchantIntake = () => {
         });
 
         await Promise.all(promises);
-        
         if(api.logAudit) await api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Application Finalized`);
         
         showToast("Application Submitted Successfully!", "success");
@@ -276,19 +284,24 @@ const MerchantIntake = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-8">
                 <div className="bg-obsidian-800 p-6 md:p-8 rounded-2xl border border-gray-700 shadow-xl">
-                    {/* ... (Existing Upload UI) ... */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                         <h3 className="text-xl font-semibold flex items-center gap-3 text-white">
                             <div className="p-2 bg-gold-500/10 rounded-lg"><Upload className="text-gold-400" size={20} /></div>
                             Upload Corporate Documents
                         </h3>
+                        {/* ✅ RESTORED DEBUG TOGGLE */}
+                        <button onClick={() => setShowDebug(!showDebug)} className="flex items-center gap-2 text-xs text-gold-400 hover:text-white transition-colors border border-gold-500/30 px-3 py-1.5 rounded-full">
+                            {showDebug ? <EyeOff size={14}/> : <Eye size={14}/>} {showDebug ? 'Hide Analysis' : 'View AI Analysis'}
+                        </button>
                     </div>
+                    
                     <div className="mb-6">
                         <select value={docType} onChange={(e) => setDocType(e.target.value)} className="w-full bg-obsidian-900 border border-gold-500/30 rounded-lg p-3 text-white focus:outline-none focus:border-gold-400">
                             <option value="">-- Choose Document --</option>
                             {getEntityDocOptions().map(opt => ( <option key={opt.val} value={opt.val}>{opt.label}</option> ))}
                         </select>
                     </div>
+                    
                     {docType && docType !== "" ? (
                         <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer hover:border-gold-400 hover:bg-gray-800/50 transition-all group">
                             <div className="flex flex-col items-center justify-center pt-2">
@@ -314,13 +327,29 @@ const MerchantIntake = () => {
                         <Input label="Operational Address (Optional)" value={company.operational_address} onChange={e => setCompany({...company, operational_address: e.target.value})} />
                     </div>
                     <div className="pt-4 flex justify-end">
+                        {/* 🚀 BUTTON FIX */}
                         <button onClick={saveCompanyStep} className="bg-gold-gradient text-black font-bold py-3 px-8 rounded-xl flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-gold-500/20">Proceed to Officers <ChevronRight size={18} /></button>
                     </div>
                 </div>
             </motion.div>
             
-            {/* Debug Panel Placeholder (Optional) */}
-            <div className="hidden lg:block lg:col-span-1"></div>
+            {/* ✅ RESTORED DEBUG PANEL VISUAL */}
+            <AnimatePresence>
+                {showDebug && (
+                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="lg:col-span-1">
+                        <div className="bg-obsidian-800 p-6 rounded-xl border border-gray-700 h-full shadow-lg flex flex-col space-y-4">
+                            <div className="bg-black/50 rounded-lg p-3 border border-gray-800">
+                                <h4 className="text-xs font-semibold text-blue-400 mb-2 flex items-center gap-2"><Cpu size={12}/> Gemini AI</h4>
+                                <div className="font-mono text-xs text-blue-300 overflow-auto max-h-40">{debugData ? <pre>{JSON.stringify(debugData, null, 2)}</pre> : <span className="italic opacity-50">Waiting...</span>}</div>
+                            </div>
+                            <div className="bg-black/50 rounded-lg p-3 border border-gray-800">
+                                <h4 className="text-xs font-semibold text-green-400 mb-2 flex items-center gap-2"><FileText size={12}/> Tesseract</h4>
+                                <div className="font-mono text-xs text-green-300 overflow-auto max-h-40">{localData ? <pre>{JSON.stringify(localData, null, 2)}</pre> : <span className="italic opacity-50">Waiting...</span>}</div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
       )}
 
@@ -395,13 +424,6 @@ const MerchantIntake = () => {
                                                 />
                                             )}
                                             
-                                            {q.type === 'long_text' && (
-                                                <textarea 
-                                                    className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:outline-none h-24"
-                                                    onChange={(e) => handleAnswerChange(form.id, q.id, e.target.value)}
-                                                />
-                                            )}
-
                                             {q.type === 'mcq' && (
                                                 <select 
                                                     className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:outline-none"
