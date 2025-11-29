@@ -68,5 +68,12 @@ export const api = {
     user_action: action,
     target_merchant_id: merchantId,
     details: details
-  })
+  }),
+
+  // --- 🆕 QUESTIONNAIRE ENDPOINTS (Added for Phase 3) ---
+  saveQuestionnaire: (data) => api.post('SAVE_QUESTIONNAIRE_DEF', data),
+  
+  getQuestionnaires: () => api.post('GET_QUESTIONNAIRES'),
+  
+  saveAnswers: (data) => api.post('SAVE_MERCHANT_ANSWERS', data)
 };
