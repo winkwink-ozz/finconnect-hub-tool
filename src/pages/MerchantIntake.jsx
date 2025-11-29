@@ -10,7 +10,7 @@ const MerchantIntake = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [showDebug, setShowDebug] = useState(false); // ✅ RESTORED DEBUG STATE
+  const [showDebug, setShowDebug] = useState(false);
   
   const [debugData, setDebugData] = useState(null);
   const [localData, setLocalData] = useState(null);
@@ -94,7 +94,7 @@ const MerchantIntake = () => {
 
         setDebugData(aiData);
         setLocalData(tessData);
-        if(!showDebug) setShowDebug(true); // Auto-show debug on scan
+        if(!showDebug) setShowDebug(true);
 
         if (context === 'COMPANY') {
             setCompany(prev => ({
@@ -116,7 +116,7 @@ const MerchantIntake = () => {
                 ...o,
                 file_id: fileId,
                 uploaded_files: [...(o.uploaded_files || []), newFileObj],
-                doc_type: "",
+                doc_type: "", // Reset after upload
                 full_name: getVal(aiData.full_name, o.full_name),
                 dob: getVal(aiData.dob, tessData.dob) || o.dob,
                 passport_number: getVal(aiData.passport_number, tessData.passport_number) || o.passport_number,
@@ -161,21 +161,14 @@ const MerchantIntake = () => {
     const missing = [];
     if (!company.company_name) missing.push("Company Name");
     if (!company.registration_number) missing.push("Registration Number");
-    
-    if (missing.length > 0) { 
-        showToast(`Missing: ${missing.join(', ')}`, "error"); 
-        return; 
-    }
+    if (missing.length > 0) { showToast(`Missing: ${missing.join(', ')}`, "error"); return; }
 
     setLoading(true);
     try {
         let filesPayload = company.uploaded_files;
         if ((!filesPayload || filesPayload.length === 0) && company.file_id) filesPayload = [{ id: company.file_id, type: 'LEGACY' }];
         
-        // Ensure API call works, even if backend returns minimal data
         const res = await api.initMerchant({ ...company, file_ids: filesPayload });
-        
-        // ✅ CRITICAL FIX: Ensure we move to Step 2
         if (res && (res.status === 'success' || res.merchant_id)) {
             setCompany(prev => ({ 
                 ...prev, 
@@ -183,16 +176,10 @@ const MerchantIntake = () => {
                 folder_url: res.data?.folder_url || res.folder_url, 
                 folder_id: res.data?.folder_id || res.folder_id 
             }));
-            setStep(2); // Move to Officers
+            setStep(2); 
             showToast("Entity Details Saved", "success");
-        } else {
-            throw new Error("Invalid response from server");
         }
-    } catch (err) { 
-        showToast("Save Failed: " + err.message, "error"); 
-    } finally { 
-        setLoading(false); 
-    }
+    } catch (err) { showToast("Save Failed: " + err.message, "error"); } finally { setLoading(false); }
   };
 
   const saveOfficersStep = async () => {
@@ -204,7 +191,7 @@ const MerchantIntake = () => {
             return api.saveOfficer({ ...officer, merchant_id: company.merchant_id, folder_id: company.folder_id, file_ids: filesPayload });
         });
         await Promise.all(promises);
-        setStep(3); // Move to Compliance
+        setStep(3); 
         showToast("Officers Saved. Loading Questionnaires...", "success");
     } catch (err) { showToast("Error: " + err.message, "error"); } finally { setLoading(false); }
   };
@@ -226,7 +213,6 @@ const MerchantIntake = () => {
 
         await Promise.all(promises);
         if(api.logAudit) await api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Application Finalized`);
-        
         showToast("Application Submitted Successfully!", "success");
         setTimeout(() => window.location.href = "/", 3000);
     } catch (e) {
@@ -289,19 +275,16 @@ const MerchantIntake = () => {
                             <div className="p-2 bg-gold-500/10 rounded-lg"><Upload className="text-gold-400" size={20} /></div>
                             Upload Corporate Documents
                         </h3>
-                        {/* ✅ RESTORED DEBUG TOGGLE */}
                         <button onClick={() => setShowDebug(!showDebug)} className="flex items-center gap-2 text-xs text-gold-400 hover:text-white transition-colors border border-gold-500/30 px-3 py-1.5 rounded-full">
                             {showDebug ? <EyeOff size={14}/> : <Eye size={14}/>} {showDebug ? 'Hide Analysis' : 'View AI Analysis'}
                         </button>
                     </div>
-                    
                     <div className="mb-6">
                         <select value={docType} onChange={(e) => setDocType(e.target.value)} className="w-full bg-obsidian-900 border border-gold-500/30 rounded-lg p-3 text-white focus:outline-none focus:border-gold-400">
                             <option value="">-- Choose Document --</option>
                             {getEntityDocOptions().map(opt => ( <option key={opt.val} value={opt.val}>{opt.label}</option> ))}
                         </select>
                     </div>
-                    
                     {docType && docType !== "" ? (
                         <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer hover:border-gold-400 hover:bg-gray-800/50 transition-all group">
                             <div className="flex flex-col items-center justify-center pt-2">
@@ -327,13 +310,11 @@ const MerchantIntake = () => {
                         <Input label="Operational Address (Optional)" value={company.operational_address} onChange={e => setCompany({...company, operational_address: e.target.value})} />
                     </div>
                     <div className="pt-4 flex justify-end">
-                        {/* 🚀 BUTTON FIX */}
                         <button onClick={saveCompanyStep} className="bg-gold-gradient text-black font-bold py-3 px-8 rounded-xl flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-gold-500/20">Proceed to Officers <ChevronRight size={18} /></button>
                     </div>
                 </div>
             </motion.div>
             
-            {/* ✅ RESTORED DEBUG PANEL VISUAL */}
             <AnimatePresence>
                 {showDebug && (
                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="lg:col-span-1">
@@ -353,13 +334,16 @@ const MerchantIntake = () => {
         </div>
       )}
 
-      {/* STEP 2: OFFICERS */}
+      {/* STEP 2: OFFICERS (FIXED: Added Uploads Back) */}
       {step === 2 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2 space-y-6">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-semibold text-white">Directors & Shareholders</h2>
-                    <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: '', dob: '', passport_number: '', doc_type: '', uploaded_files: [] }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"><Plus size={16} /> Add Person</button>
+                    <div className="flex gap-4 items-center">
+                         <button onClick={() => setShowDebug(!showDebug)} className="text-xs text-gold-400 border border-gold-500/30 px-3 py-1.5 rounded-full flex items-center gap-2">{showDebug ? <EyeOff size={12}/> : <Eye size={12}/>} Debug</button>
+                         <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: '', dob: '', passport_number: '', doc_type: '', uploaded_files: [] }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"><Plus size={16} /> Add Person</button>
+                    </div>
                 </div>
 
                 {officers.map((officer, index) => (
@@ -379,16 +363,59 @@ const MerchantIntake = () => {
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Input label="Full Name" required value={officer.full_name} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, full_name: e.target.value } : o))} />
-                            <Input label="Passport/ID Number" required value={officer.passport_number} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, passport_number: e.target.value } : o))} />
-                        </div>
+                        {/* ✅ RESTORED OFFICER UPLOAD & AI */}
+                        <AnimatePresence>
+                            {officer.role && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-700/50">
+                                        <div className="col-span-1">
+                                            <label className="block text-xs font-medium text-gray-400 mb-2">Upload Evidence:</label>
+                                            <select value={officer.doc_type} onChange={(e) => setOfficers(officers.map(o => o.id === officer.id ? { ...o, doc_type: e.target.value } : o))} className="w-full bg-obsidian-900 text-xs border border-gray-700 rounded mb-3 p-2 text-white focus:border-gold-400 outline-none">
+                                                <option value="" className="bg-obsidian-900">-- Select Document --</option>
+                                                {getOfficerDocOptions(officer).map(opt => ( <option key={opt.val} value={opt.val} className="bg-obsidian-900">{opt.label}</option> ))}
+                                            </select>
+
+                                            {officer.doc_type && officer.doc_type !== "" ? (
+                                                <label className="flex flex-col items-center justify-center h-32 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:bg-black/20 group">
+                                                    <div className="text-center group-hover:scale-105 transition-transform"><Upload className="mx-auto text-gold-400 mb-1" size={20} /><span className="text-xs text-gray-300 font-medium">Click to Upload</span></div>
+                                                    <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleAnalysis(e.target.files[0], officer.doc_type, 'OFFICER', officer.id)} />
+                                                </label>
+                                            ) : (
+                                                <div className="h-32 border border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center bg-gray-900/50 text-gray-500 text-xs text-center p-2">
+                                                    {getOfficerDocOptions(officer)[0].val === "" ? <span className="text-green-400 flex items-center gap-1"><CheckCircle size={12}/> Complete</span> : "Select doc to upload"}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="md:col-span-2"><Input label="Full Name" required value={officer.full_name} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, full_name: e.target.value } : o))} /></div>
+                                            <Input label="Passport/ID Number" required value={officer.passport_number} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, passport_number: e.target.value } : o))} />
+                                            <Input label="Date of Birth" required value={officer.dob} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, dob: e.target.value } : o))} />
+                                            <div className="md:col-span-2"><Input label="Residential Address" required value={officer.residential_address} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, residential_address: e.target.value } : o))} /></div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 ))}
                 <div className="flex justify-end pt-6 border-t border-gray-800">
                     <button onClick={saveOfficersStep} className="bg-gold-gradient text-black font-bold py-3 px-8 rounded-xl flex items-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-105 transition-all">Next: Compliance <ChevronRight size={18} /></button>
                 </div>
             </motion.div>
+            
+            {/* DEBUG PANEL FOR STEP 2 */}
+            <AnimatePresence>
+                {showDebug && (
+                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="lg:col-span-1">
+                        <div className="bg-obsidian-800 p-6 rounded-xl border border-gray-700 h-full shadow-lg flex flex-col space-y-4">
+                            <div className="bg-black/50 rounded-lg p-3 border border-gray-800">
+                                <h4 className="text-xs font-semibold text-blue-400 mb-2 flex items-center gap-2"><Cpu size={12}/> Gemini AI</h4>
+                                <div className="font-mono text-xs text-blue-300 overflow-auto max-h-40">{debugData ? <pre>{JSON.stringify(debugData, null, 2)}</pre> : <span className="italic opacity-50">Waiting...</span>}</div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
       )}
 
@@ -416,6 +443,7 @@ const MerchantIntake = () => {
                                         <div key={q.id}>
                                             <label className="block text-sm font-medium text-gray-300 mb-2">{q.label}</label>
                                             
+                                            {/* ✅ FIXED TEXT INPUT RENDERING */}
                                             {q.type === 'text' && (
                                                 <input 
                                                     type="text" 
