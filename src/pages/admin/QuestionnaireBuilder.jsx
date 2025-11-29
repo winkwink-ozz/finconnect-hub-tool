@@ -7,6 +7,7 @@ const PSP_TYPES = [
   "Card Processing", "Crypto Processing", "EMI / Bank Wire", "Mobile Money", "Wallet"
 ];
 
+// ✅ FIXED: Only 2 Options
 const QUESTION_TYPES = [
   { id: 'text', label: 'Text Field', icon: Type },
   { id: 'mcq', label: 'Multiple Choice', icon: CheckSquare }
@@ -22,7 +23,7 @@ export default function QuestionnaireBuilder() {
       id: Date.now(),
       type,
       label: '',
-      options: type === 'mcq' ? [''] : [] // Initialize with 1 empty option
+      options: type === 'mcq' ? [''] : []
     }]);
   };
 
@@ -30,7 +31,7 @@ export default function QuestionnaireBuilder() {
     setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
   };
 
-  // 🆕 MCQ Option Logic
+  // ✅ FIXED: Add/Remove Options for MCQ
   const addOption = (qId) => {
     setQuestions(questions.map(q => 
       q.id === qId ? { ...q, options: [...q.options, ''] } : q
@@ -72,7 +73,6 @@ export default function QuestionnaireBuilder() {
   return (
     <div className="p-8 min-h-screen bg-obsidian-900 text-white font-sans flex gap-8">
       
-      {/* LEFT: CONTROLS */}
       <div className="w-1/3 space-y-6">
         <div>
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gold-gradient mb-2">Form Builder</h1>
@@ -116,7 +116,6 @@ export default function QuestionnaireBuilder() {
         </button>
       </div>
 
-      {/* RIGHT: CANVAS */}
       <div className="w-2/3 bg-obsidian-800 rounded-3xl border border-gray-700 p-8 shadow-2xl min-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
           <h2 className="text-xl font-bold text-white">{selectedType} Questionnaire</h2>
