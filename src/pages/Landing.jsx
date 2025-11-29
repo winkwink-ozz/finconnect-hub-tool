@@ -1,13 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UserPlus, ShieldCheck, Lock, ChevronRight } from 'lucide-react';
+import { UserPlus, ShieldCheck, ChevronRight } from 'lucide-react';
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-obsidian-900 flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
       
-      {/* 1. Ambient Background Effects (Subtle) */}
+      {/* 1. Ambient Background Effects */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-4xl opacity-20 pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gold-500 rounded-full blur-[120px] animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-blue-900/40 rounded-full blur-[100px]"></div>
@@ -19,10 +19,10 @@ const Landing = () => {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="relative z-10 w-full max-w-lg bg-black/60 backdrop-blur-xl border border-white/10 rounded-3xl p-12 shadow-2xl text-center flex flex-col items-center"
       >
-        {/* 2. Authority Logo (Clean & Sharp - No Blur) */}
-        <div className="relative w-28 h-28 mb-8">
-            <div className="relative w-full h-full bg-white rounded-2xl flex items-center justify-center border-2 border-gold-500 shadow-[0_0_20px_rgba(212,175,55,0.2)]">
-                <img src="/finconnect-hub-tool/logo.png" alt="Logo" className="w-16 h-16 object-contain" />
+        {/* 2. Authority Logo (Crisp + Focused Hover Effect) */}
+        <div className="relative w-28 h-28 mb-8 group">
+            <div className="relative w-full h-full bg-white rounded-2xl flex items-center justify-center border-2 border-gold-500 shadow-[0_0_20px_rgba(212,175,55,0.2)] transition-all duration-500 group-hover:scale-105 group-hover:shadow-[0_0_40px_rgba(212,175,55,0.5)] group-hover:border-gold-400">
+                <img src="/finconnect-hub-tool/logo.png" alt="Logo" className="w-16 h-16 object-contain transition-transform group-hover:scale-110" />
             </div>
         </div>
 
@@ -35,18 +35,24 @@ const Landing = () => {
           Merchant Onboarding & KYC
         </h2>
 
-        {/* 4. The "Tech HUD" Trust Badges (Option B) */}
-        <div className="flex items-center justify-center gap-3 w-full mb-10">
-            {/* Chip 1: Gemini AI */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-black border border-gold-500/40 rounded-lg shadow-[0_0_10px_rgba(212,175,55,0.05)] hover:border-gold-400 transition-colors">
-                <ShieldCheck size={14} className="text-gold-400" />
-                <span className="text-[10px] font-bold text-gray-300 tracking-wider">GEMINI AI</span>
-            </div>
-
-            {/* Chip 2: Vault */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-black border border-gold-500/40 rounded-lg shadow-[0_0_10px_rgba(212,175,55,0.05)] hover:border-gold-400 transition-colors">
-                <Lock size={14} className="text-gold-400" />
-                <span className="text-[10px] font-bold text-gray-300 tracking-wider">VAULT SECURE</span>
+        {/* 4. The Single Premium Trust Badge (New Design) */}
+        <div className="w-full mb-10">
+            <div className="relative group">
+                {/* Glow Effect */}
+                <div className="absolute -inset-0.5 bg-gold-gradient rounded-full blur-md opacity-40 group-hover:opacity-60 transition duration-500"></div>
+                
+                {/* The Badge Container */}
+                <div className="relative flex items-center justify-center gap-3 bg-gold-gradient rounded-full px-6 py-3 shadow-xl">
+                    {/* Black Shield Icon */}
+                    <div className="bg-black p-1.5 rounded-full">
+                        <ShieldCheck size={18} className="text-gold-400" />
+                    </div>
+                    
+                    {/* Text */}
+                    <span className="text-xs font-bold text-black uppercase tracking-wider">
+                        Protected by Gemini AI & Secure Vault
+                    </span>
+                </div>
             </div>
         </div>
 
