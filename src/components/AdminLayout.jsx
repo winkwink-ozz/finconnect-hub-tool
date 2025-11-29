@@ -6,12 +6,11 @@ const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 🔄 REORDERED & RENAMED AS REQUESTED
   const navItems = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/admin/profiles', label: 'Profiles', icon: Users },
-    { path: '/admin/builder', label: 'Questionnaire Builder', icon: PenTool }, // Moved Up & Renamed
-    { path: '/admin/applications', label: 'Application Factory', icon: FileText }, // Moved Down
+    { path: '/admin/builder', label: 'Questionnaires', icon: PenTool }, // ✅ Renamed
+    { path: '/admin/applications', label: 'Application Factory', icon: FileText },
   ];
 
   const isActive = (path) => location.pathname === path;
