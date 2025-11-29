@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { motion } from 'framer-motion';
-import { Plus, Save, Trash2, FileText, CheckSquare, Type } from 'lucide-react';
+import { Plus, Save, Trash2, CheckSquare, Type, X } from 'lucide-react';
 
 const PSP_TYPES = [
   "Card Processing", "Crypto Processing", "EMI / Bank Wire", "Mobile Money", "Wallet"
@@ -9,8 +9,7 @@ const PSP_TYPES = [
 
 const QUESTION_TYPES = [
   { id: 'text', label: 'Text Field', icon: Type },
-  { id: 'mcq', label: 'Multiple Choice', icon: CheckSquare },
-  { id: 'long_text', label: 'Long Answer', icon: FileText }
+  { id: 'mcq', label: 'Multiple Choice', icon: CheckSquare }
 ];
 
 export default function QuestionnaireBuilder() {
@@ -23,12 +22,36 @@ export default function QuestionnaireBuilder() {
       id: Date.now(),
       type,
       label: '',
-      options: type === 'mcq' ? ['Option 1'] : []
+      options: type === 'mcq' ? [''] : [] // Initialize with 1 empty option
     }]);
   };
 
   const updateQuestion = (id, field, value) => {
     setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
+  };
+
+  // 🆕 MCQ Option Logic
+  const addOption = (qId) => {
+    setQuestions(questions.map(q => 
+      q.id === qId ? { ...q, options: [...q.options, ''] } : q
+    ));
+  };
+
+  const updateOption = (qId, index, value) => {
+    setQuestions(questions.map(q => {
+        if (q.id !== qId) return q;
+        const newOpts = [...q.options];
+        newOpts[index] = value;
+        return { ...q, options: newOpts };
+    }));
+  };
+
+  const removeOption = (qId, index) => {
+    setQuestions(questions.map(q => {
+        if (q.id !== qId) return q;
+        const newOpts = q.options.filter((_, i) => i !== index);
+        return { ...q, options: newOpts };
+    }));
   };
 
   const handleSave = async () => {
@@ -124,20 +147,30 @@ export default function QuestionnaireBuilder() {
                     type="text" 
                     value={q.label}
                     onChange={(e) => updateQuestion(q.id, 'label', e.target.value)}
-                    placeholder="E.g., What is your monthly volume?"
+                    placeholder="Enter question text here..."
                     className="w-full bg-transparent text-lg font-medium text-white border-b border-gray-700 focus:border-gold-400 focus:outline-none py-2"
                   />
                 </div>
 
                 {q.type === 'mcq' && (
-                  <div className="pl-4 border-l-2 border-gray-700">
-                    <label className="block text-xs text-gray-500 mb-2">Options (Comma separated)</label>
-                    <input 
-                      type="text" 
-                      value={q.options.join(', ')}
-                      onChange={(e) => updateQuestion(q.id, 'options', e.target.value.split(',').map(s => s.trim()))}
-                      className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-2 text-sm text-gray-300 focus:border-gold-400 focus:outline-none"
-                    />
+                  <div className="pl-4 border-l-2 border-gray-700 space-y-2">
+                    <label className="block text-xs text-gray-500 mb-2">Answer Options</label>
+                    {q.options.map((opt, optIdx) => (
+                      <div key={optIdx} className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gold-500/50"></div>
+                        <input 
+                          type="text" 
+                          value={opt}
+                          onChange={(e) => updateOption(q.id, optIdx, e.target.value)}
+                          placeholder={`Option ${optIdx + 1}`}
+                          className="flex-1 bg-obsidian-900 border border-gray-700 rounded-lg p-2 text-sm text-gray-300 focus:border-gold-400 focus:outline-none"
+                        />
+                        <button onClick={() => removeOption(q.id, optIdx)} className="text-gray-600 hover:text-red-400"><X size={14}/></button>
+                      </div>
+                    ))}
+                    <button onClick={() => addOption(q.id)} className="text-xs text-gold-400 hover:text-white flex items-center gap-1 mt-2">
+                        <Plus size={12}/> Add Option
+                    </button>
                   </div>
                 )}
               </motion.div>
