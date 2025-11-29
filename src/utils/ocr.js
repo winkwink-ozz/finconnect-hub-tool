@@ -7,9 +7,11 @@ import { parseRawText } from './parsers';
  */
 export const runOCR = async (file, category) => {
   try {
-    // 1. Execute Tesseract
+    // 🛡️ Safe Execution Block
     const result = await Tesseract.recognize(file, 'eng', {
-      // logger: m => console.log(`[OCR] ${m.status}: ${Math.round(m.progress * 100)}%`) // Uncomment for debug
+      // logger: m => console.log(`[OCR] ${m.status}: ${Math.round(m.progress * 100)}%`),
+      // Fallback if CDN is blocked (uses default worker)
+      errorHandler: (err) => console.warn("Tesseract Worker Warning:", err)
     });
 
     const rawText = result.data.text;
@@ -23,7 +25,12 @@ export const runOCR = async (file, category) => {
       data: extracted
     };
   } catch (error) {
-    console.error("OCR Failed:", error);
-    return { source: 'TESSERACT', data: {}, error: error.message };
+    // 🛡️ Graceful Failure (Return empty so app continues with Gemini data)
+    console.error("OCR Failed (Worker likely blocked):", error.message);
+    return { 
+        source: 'TESSERACT', 
+        data: {}, 
+        error: "Local OCR blocked. Used Server AI only." 
+    };
   }
 };
