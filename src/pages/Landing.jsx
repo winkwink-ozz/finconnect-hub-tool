@@ -31,33 +31,12 @@ const Landing = () => {
           FinConnect <span className="text-transparent bg-clip-text bg-gold-gradient">Hub</span>
         </h1>
         
-        <h2 className="text-sm font-bold text-gold-400 tracking-[0.2em] uppercase mb-8">
+        <h2 className="text-sm font-bold text-gold-400 tracking-[0.2em] uppercase mb-10">
           Merchant Onboarding & KYC
         </h2>
 
-        {/* 4. The Single Premium Trust Badge (New Design) */}
-        <div className="w-full mb-10">
-            <div className="relative group">
-                {/* Glow Effect */}
-                <div className="absolute -inset-0.5 bg-gold-gradient rounded-full blur-md opacity-40 group-hover:opacity-60 transition duration-500"></div>
-                
-                {/* The Badge Container */}
-                <div className="relative flex items-center justify-center gap-3 bg-gold-gradient rounded-full px-6 py-3 shadow-xl">
-                    {/* Black Shield Icon */}
-                    <div className="bg-black p-1.5 rounded-full">
-                        <ShieldCheck size={18} className="text-gold-400" />
-                    </div>
-                    
-                    {/* Text */}
-                    <span className="text-xs font-bold text-black uppercase tracking-wider">
-                        Protected by Gemini AI & Secure Vault
-                    </span>
-                </div>
-            </div>
-        </div>
-
-        {/* 5. The "Gold Standard" CTA */}
-        <Link to="/onboard" className="w-full group relative">
+        {/* 4. The "Gold Standard" CTA (Primary Focus) */}
+        <Link to="/onboard" className="w-full group relative mb-6">
             <div className="absolute -inset-0.5 bg-gold-gradient rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
             <button className="relative w-full bg-gold-gradient text-black font-bold text-lg py-4 px-8 rounded-xl flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all transform">
                 <UserPlus size={20} className="text-black" />
@@ -65,6 +44,14 @@ const Landing = () => {
                 <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
         </Link>
+
+        {/* 5. The "Reassurance Anchor" Badge (Option A: Ghost Style, Below CTA) */}
+        <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-gold-500/20 backdrop-blur-md opacity-80 hover:opacity-100 transition-opacity cursor-default">
+            <ShieldCheck size={14} className="text-gold-400" />
+            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">
+                Protected by Gemini AI & Secure Vault
+            </span>
+        </div>
 
       </motion.div>
 
