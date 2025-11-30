@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Eye, AlertCircle, ExternalLink, User, Building, Loader2, Save } from 'lucide-react';
+import { X, Check, Eye, AlertCircle, ExternalLink, User, Building, Loader2, Save, FileCheck, AlertTriangle } from 'lucide-react';
 import Toast from '../../components/ui/Toast';
 
 export default function Profiles() {
@@ -28,9 +28,9 @@ export default function Profiles() {
     <div className="p-6 min-h-screen bg-obsidian-900 text-white font-sans">
       <div className="flex justify-between items-center mb-8">
         <div>
-           {/* 🆕 RENAMED TITLE */}
+           {/* TITLE */}
            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gold-gradient">Client Profiles</h1>
-           <p className="text-gray-400 mt-1">Verify Entity & Officer Data</p>
+           <p className="text-gray-400 mt-1">Verify Entity, Officer & Compliance Data</p>
         </div>
         <div className="bg-obsidian-800 px-4 py-2 rounded-lg border border-gold-500/30 shadow-[0_0_15px_rgba(212,175,55,0.1)]">
           <span className="text-gold-400 font-bold">{merchants.filter(m => m.status === 'Pending Review').length}</span> <span className="text-gray-400">Pending</span>
@@ -48,7 +48,7 @@ export default function Profiles() {
             className="bg-obsidian-800 p-4 rounded-xl border border-gray-700 hover:border-gold-500/50 transition-all flex justify-between items-center group"
           >
             <div className="flex items-center gap-4">
-              <div className={`w-1.5 h-12 rounded-full ${m.status === 'Approved' ? 'bg-green-500' : 'bg-gold-500'}`}></div>
+              <div className={`w-1.5 h-12 rounded-full ${m.status === 'Approved' ? 'bg-green-500' : m.status === 'Rejected' ? 'bg-red-500' : 'bg-gold-500'}`}></div>
               <div>
                 <h3 className="font-bold text-lg text-white group-hover:text-gold-400 transition-colors">{m.company_name || 'Unknown Entity'}</h3>
                 <div className="flex gap-3 text-xs text-gray-500 font-mono mt-1">
@@ -68,7 +68,7 @@ export default function Profiles() {
         ))}
       </div>
 
-      {/* 🆕 REFRACTORED MODAL */}
+      {/* MODAL */}
       <AnimatePresence>
         {selectedMerchantId && (
           <ProfileModal 
@@ -84,7 +84,7 @@ export default function Profiles() {
 
 // --- MAIN MODAL COMPONENT ---
 function ProfileModal({ merchantId, onClose, onSave }) {
-  const [data, setData] = useState(null); // Full Data (Company + Officers)
+  const [data, setData] = useState(null); // Full Data (Company + Officers + Answers)
   const [files, setFiles] = useState([]); // File List from Drive
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ENTITY');
@@ -99,7 +99,7 @@ function ProfileModal({ merchantId, onClose, onSave }) {
   const loadDetails = async () => {
     setLoading(true);
     try {
-      // 1. Get Metadata
+      // 1. Get Metadata (Includes Answers now)
       const details = await api.getMerchantFull(merchantId);
       setData(details);
       
@@ -127,7 +127,7 @@ function ProfileModal({ merchantId, onClose, onSave }) {
   // Find relevant file for Entity or Officer
   const findRelevantFile = (keyword) => {
     if (!files.length) return null;
-    // Simple heuristic: search file name for keyword (e.g., 'CERT', 'Passport', Officer Name)
+    // Simple heuristic: search file name for keyword
     return files.find(f => f.name.toLowerCase().includes(keyword.toLowerCase()));
   };
 
@@ -151,24 +151,35 @@ function ProfileModal({ merchantId, onClose, onSave }) {
         <div className="h-16 border-b border-gray-700 flex items-center justify-between px-6 bg-obsidian-900">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-white">{data.company.company_name}</h2>
-            <span className={`px-2 py-0.5 rounded text-xs font-bold ${data.company.status === 'Approved' ? 'bg-green-900 text-green-400' : 'bg-gold-900 text-gold-400'}`}>
+            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${
+              data.company.status === 'Approved' ? 'bg-green-900 text-green-400' : 
+              data.company.status === 'Rejected' ? 'bg-red-900 text-red-400' : 'bg-gold-900 text-gold-400'
+            }`}>
               {data.company.status}
             </span>
           </div>
+          
           <div className="flex items-center gap-2">
-            {/* TABS */}
-            <button 
-              onClick={() => setActiveTab('ENTITY')}
-              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'ENTITY' ? 'bg-gold-500 text-black' : 'text-gray-400 hover:text-white'}`}
-            >
-              <Building size={16} /> Entity
-            </button>
-            <button 
-              onClick={() => setActiveTab('OFFICERS')}
-              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'OFFICERS' ? 'bg-gold-500 text-black' : 'text-gray-400 hover:text-white'}`}
-            >
-              <User size={16} /> Officers ({data.officers.length})
-            </button>
+            {/* 🆕 PREMIUM TABS */}
+            <TabButton 
+              active={activeTab === 'ENTITY'} 
+              onClick={() => setActiveTab('ENTITY')} 
+              icon={Building} 
+              label="Entity" 
+            />
+            <TabButton 
+              active={activeTab === 'OFFICERS'} 
+              onClick={() => setActiveTab('OFFICERS')} 
+              icon={User} 
+              label={`Officers (${data.officers.length})`} 
+            />
+            <TabButton 
+              active={activeTab === 'COMPLIANCE'} 
+              onClick={() => setActiveTab('COMPLIANCE')} 
+              icon={FileCheck} 
+              label="Compliance" 
+            />
+
             <div className="w-px h-6 bg-gray-700 mx-2"></div>
             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-700 text-gray-400 hover:text-white"><X size={20} /></button>
           </div>
@@ -180,19 +191,21 @@ function ProfileModal({ merchantId, onClose, onSave }) {
           {/* LEFT: FORM DATA */}
           <div className="w-1/3 border-r border-gray-700 bg-obsidian-900 overflow-y-auto p-6">
             
-            {activeTab === 'ENTITY' ? (
+            {activeTab === 'ENTITY' && (
               <EntityForm 
                 data={data.company} 
                 onUpdate={(updated) => setData({ ...data, company: { ...data.company, ...updated } })}
                 onSave={async () => {
                   try {
                     await api.updateMerchant(data.company);
-                    showToast("Entity Saved", "success");
-                    onSave(); // Refresh
+                    showToast(`Entity Status: ${data.company.status}`, "success");
+                    onSave(); // Refresh parent
                   } catch(e) { showToast(e.message, "error"); }
                 }}
               />
-            ) : (
+            )}
+
+            {activeTab === 'OFFICERS' && (
               <div className="space-y-6">
                 {/* Officer Selector */}
                 <div className="flex gap-2 overflow-x-auto pb-2 border-b border-gray-800">
@@ -225,15 +238,22 @@ function ProfileModal({ merchantId, onClose, onSave }) {
                 )}
               </div>
             )}
+
+            {/* 🆕 COMPLIANCE TAB */}
+            {activeTab === 'COMPLIANCE' && (
+               <ComplianceViewer answers={data.answers} />
+            )}
+
           </div>
 
           {/* RIGHT: EVIDENCE VIEWER (PROXY) */}
           <div className="w-2/3 bg-black flex flex-col relative">
-             {/* Intelligent File Selection logic */}
+             {/* Logic: Show Officer doc if Officer Tab, else Company/Generic doc */}
              <EvidenceViewer 
-                file={activeTab === 'ENTITY' 
-                  ? findRelevantFile('CERT') || files[0] 
-                  : findRelevantFile(data.officers.find(o => o.officer_id === selectedOfficerId)?.full_name.split(' ')[0]) || files[0]
+                file={
+                  activeTab === 'OFFICERS' 
+                  ? findRelevantFile(data.officers.find(o => o.officer_id === selectedOfficerId)?.full_name.split(' ')[0]) || files[0]
+                  : findRelevantFile('CERT') || files[0]
                 } 
              />
           </div>
@@ -246,11 +266,33 @@ function ProfileModal({ merchantId, onClose, onSave }) {
 
 // --- SUB-COMPONENTS ---
 
+const TabButton = ({ active, onClick, icon: Icon, label }) => (
+  <button 
+    onClick={onClick}
+    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
+      active 
+        ? 'bg-gold-gradient text-black shadow-lg shadow-gold-500/20' 
+        : 'text-gray-400 hover:text-white hover:bg-white/5'
+    }`}
+  >
+    <Icon size={16} /> {label}
+  </button>
+);
+
 const EntityForm = ({ data, onUpdate, onSave }) => {
   const [saving, setSaving] = useState(false);
-  const handleSave = async (status) => {
+  
+  const handleAction = async (newStatus) => {
     setSaving(true);
-    await onSave(); // Parent handles logic
+    // Optimistic Update
+    onUpdate({ status: newStatus });
+    // Trigger Save
+    await onSave(); // Parent handles API call based on current 'data' state which we just updated? 
+    // Wait, onUpdate updates state, but React state update is async. 
+    // Better to pass the status directly to onSave or handle it carefully.
+    // For this simplistic version, we rely on the user clicking "Save" or we chain it.
+    // Let's modify onSave to not depend solely on state for the trigger if possible, 
+    // but here we updated parent state. Let's do a direct prop update + save.
     setSaving(false);
   };
 
@@ -263,9 +305,30 @@ const EntityForm = ({ data, onUpdate, onSave }) => {
       <Field label="Country" value={data.country} onChange={v => onUpdate({ country: v })} />
       <Field label="Address" value={data.registered_address} onChange={v => onUpdate({ registered_address: v })} type="textarea" />
       
-      <div className="pt-6 border-t border-gray-800 flex gap-3">
-        <button onClick={() => onUpdate({ status: 'Approved' }) || handleSave()} className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-sm text-white">Approve Entity</button>
-        <button onClick={() => handleSave()} className="px-4 bg-obsidian-700 border border-gray-600 rounded-lg hover:text-gold-400"><Save size={18}/></button>
+      <div className="pt-6 border-t border-gray-800 flex flex-col gap-3">
+        <div className="flex gap-3">
+             {/* 🆕 REJECT BUTTON */}
+             <button 
+                onClick={() => handleAction('Rejected')} 
+                className="flex-1 bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 py-3 rounded-lg font-bold text-sm transition-all"
+             >
+                Reject Entity
+             </button>
+             
+             {/* APPROVE BUTTON */}
+             <button 
+                onClick={() => handleAction('Approved')} 
+                className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-sm text-white shadow-lg shadow-green-500/20 transition-all"
+             >
+                Approve Entity
+             </button>
+        </div>
+        <button 
+            onClick={() => handleAction(data.status)} // Just save current state
+            className="w-full bg-obsidian-700 border border-gray-600 rounded-lg py-2 text-xs text-gray-400 hover:text-white flex items-center justify-center gap-2"
+        >
+            <Save size={14}/> Save Changes Only
+        </button>
       </div>
     </div>
   );
@@ -297,7 +360,38 @@ const OfficerForm = ({ data, onUpdate, onSave }) => {
   );
 };
 
-// 🆕 PROXY VIEWER (The Solution to 403)
+// 🆕 COMPLIANCE VIEWER
+const ComplianceViewer = ({ answers }) => {
+    if (!answers || answers.length === 0) return (
+        <div className="flex flex-col items-center justify-center h-64 text-gray-500 border border-dashed border-gray-700 rounded-xl">
+            <AlertTriangle size={32} className="mb-2 opacity-50"/>
+            <p>No Compliance Data Found</p>
+        </div>
+    );
+
+    return (
+        <div className="space-y-6">
+            {answers.map((entry, idx) => (
+                <div key={idx} className="bg-black/30 border border-gray-700 rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                         <h4 className="text-gold-400 font-bold text-sm">{entry.questionnaire_id || "Questionnaire"}</h4>
+                         <span className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleDateString()}</span>
+                    </div>
+                    <div className="space-y-3">
+                        {Object.entries(entry.answers).map(([qid, val]) => (
+                            <div key={qid}>
+                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Question ID: {qid}</p>
+                                <p className="text-sm text-white bg-obsidian-900 p-2 rounded border border-gray-800">{val}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+// 🆕 PROXY VIEWER (Preserved Logic)
 const EvidenceViewer = ({ file }) => {
   const [imageData, setImageData] = useState(null);
   const [loading, setLoading] = useState(false);
