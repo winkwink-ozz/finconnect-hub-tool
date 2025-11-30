@@ -38,14 +38,23 @@ export const api = {
   // --- MERCHANT OPERATIONS ---
   getAllMerchants: () => api.post('GET_ALL_MERCHANTS'),
   
-  // Updated to match your GAS 'INIT_MERCHANT'
+  getMerchantFull: (id) => api.post('GET_MERCHANT_FULL', { merchant_id: id }),
+
   initMerchant: (data) => api.post('INIT_MERCHANT', data), 
   
   updateMerchant: (data) => api.post('UPDATE_MERCHANT', data),
   
+  // --- OFFICER OPERATIONS ---
   saveOfficer: (data) => api.post('SAVE_OFFICER', data),
+  
+  updateOfficer: (data) => api.post('UPDATE_OFFICER', data), // 🆕 Added
 
-  // --- AI OPERATIONS (Required for MerchantIntake) ---
+  // --- FILE & AI OPERATIONS ---
+  getFolderFiles: (folderId) => api.post('GET_FOLDER_FILES', { folder_id: folderId }),
+
+  // 🆕 PROXY FETCH (Returns Base64)
+  getFileProxy: (fileId) => api.post('GET_FILE_PROXY', { file_id: fileId }),
+
   analyzeDocument: async (file, category) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -70,7 +79,7 @@ export const api = {
     details: details
   }),
 
-  // --- 🆕 QUESTIONNAIRE ENDPOINTS (Added for Phase 3) ---
+  // --- QUESTIONNAIRE ENDPOINTS ---
   saveQuestionnaire: (data) => api.post('SAVE_QUESTIONNAIRE_DEF', data),
   
   getQuestionnaires: () => api.post('GET_QUESTIONNAIRES'),
