@@ -85,6 +85,7 @@ export default function Profiles() {
 // --- MAIN MODAL COMPONENT ---
 function ProfileModal({ merchantId, onClose, onSave }) {
   const [data, setData] = useState(null); // Full Data (Company + Officers + Answers)
+  const [schemas, setSchemas] = useState([]); // 🆕 Stores Questionnaire Definitions
   const [files, setFiles] = useState([]); // File List from Drive
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ENTITY');
@@ -103,7 +104,12 @@ function ProfileModal({ merchantId, onClose, onSave }) {
       const details = await api.getMerchantFull(merchantId);
       setData(details);
       
-      // 2. Get Files (for linking)
+      // 2. 🆕 Get Questionnaires (for Mapping IDs to Questions)
+      // We fetch this so we can show "What is your volume?" instead of "Q-12345"
+      const allSchemas = await api.getQuestionnaires();
+      setSchemas(allSchemas);
+
+      // 3. Get Files (for linking)
       if (details.company.folder_id) {
         const driveFiles = await api.getFolderFiles(details.company.folder_id);
         setFiles(driveFiles);
@@ -189,7 +195,6 @@ function ProfileModal({ merchantId, onClose, onSave }) {
         <div className="flex-1 flex overflow-hidden">
           
           {/* LEFT: FORM DATA (CONDITIONAL WIDTH) */}
-          {/* ⚡ LOGIC CHANGE: If Compliance, use full width. Else 1/3 width with right border. */}
           <div className={`${activeTab === 'COMPLIANCE' ? 'w-full' : 'w-1/3 border-r'} border-gray-700 bg-obsidian-900 overflow-y-auto p-6 transition-all duration-300`}>
             
             {activeTab === 'ENTITY' && (
@@ -240,20 +245,27 @@ function ProfileModal({ merchantId, onClose, onSave }) {
               </div>
             )}
 
-            {/* 🆕 COMPLIANCE TAB (Full Width View) */}
+            {/* 🆕 COMPLIANCE TAB (Fully Editable Form) */}
             {activeTab === 'COMPLIANCE' && (
                <div className="max-w-4xl mx-auto">
-                 <ComplianceViewer answers={data.answers} />
+                 <ComplianceViewer 
+                    answers={data.answers} 
+                    schemas={schemas} 
+                    onSave={async (responseId, newAnswers) => {
+                        try {
+                            await api.updateAnswers({ response_id: responseId, answers: newAnswers });
+                            showToast("Compliance Data Updated", "success");
+                        } catch(e) { showToast("Save Failed", "error"); }
+                    }}
+                 />
                </div>
             )}
 
           </div>
 
           {/* RIGHT: EVIDENCE VIEWER (PROXY) */}
-          {/* ⚡ LOGIC CHANGE: Only show if NOT Compliance */}
           {activeTab !== 'COMPLIANCE' && (
             <div className="w-2/3 bg-black flex flex-col relative">
-               {/* Logic: Show Officer doc if Officer Tab, else Company/Generic doc */}
                <EvidenceViewer 
                   file={
                     activeTab === 'OFFICERS' 
@@ -290,9 +302,7 @@ const EntityForm = ({ data, onUpdate, onSave }) => {
   
   const handleAction = async (newStatus) => {
     setSaving(true);
-    // Optimistic Update
     onUpdate({ status: newStatus });
-    // Trigger Save
     await onSave(); 
     setSaving(false);
   };
@@ -308,28 +318,10 @@ const EntityForm = ({ data, onUpdate, onSave }) => {
       
       <div className="pt-6 border-t border-gray-800 flex flex-col gap-3">
         <div className="flex gap-3">
-             {/* REJECT BUTTON */}
-             <button 
-                onClick={() => handleAction('Rejected')} 
-                className="flex-1 bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 py-3 rounded-lg font-bold text-sm transition-all"
-             >
-                Reject Entity
-             </button>
-             
-             {/* APPROVE BUTTON */}
-             <button 
-                onClick={() => handleAction('Approved')} 
-                className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-sm text-white shadow-lg shadow-green-500/20 transition-all"
-             >
-                Approve Entity
-             </button>
+             <button onClick={() => handleAction('Rejected')} className="flex-1 bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 py-3 rounded-lg font-bold text-sm transition-all">Reject Entity</button>
+             <button onClick={() => handleAction('Approved')} className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-sm text-white shadow-lg shadow-green-500/20 transition-all">Approve Entity</button>
         </div>
-        <button 
-            onClick={() => handleAction(data.status)} // Just save current state
-            className="w-full bg-obsidian-700 border border-gray-600 rounded-lg py-2 text-xs text-gray-400 hover:text-white flex items-center justify-center gap-2"
-        >
-            <Save size={14}/> Save Changes Only
-        </button>
+        <button onClick={() => handleAction(data.status)} className="w-full bg-obsidian-700 border border-gray-600 rounded-lg py-2 text-xs text-gray-400 hover:text-white flex items-center justify-center gap-2"><Save size={14}/> Save Changes Only</button>
       </div>
     </div>
   );
@@ -361,8 +353,8 @@ const OfficerForm = ({ data, onUpdate, onSave }) => {
   );
 };
 
-// 🆕 COMPLIANCE VIEWER
-const ComplianceViewer = ({ answers }) => {
+// 🆕 EDITABLE COMPLIANCE VIEWER
+const ComplianceViewer = ({ answers, schemas, onSave }) => {
     if (!answers || answers.length === 0) return (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500 border border-dashed border-gray-700 rounded-xl">
             <AlertTriangle size={32} className="mb-2 opacity-50"/>
@@ -374,25 +366,77 @@ const ComplianceViewer = ({ answers }) => {
         <div className="space-y-6">
             <div className="bg-obsidian-800/50 p-4 rounded-xl border border-gold-500/20 mb-6">
                 <h3 className="text-gold-400 font-bold flex items-center gap-2"><FileCheck size={20}/> Compliance Overview</h3>
-                <p className="text-xs text-gray-400 mt-1">Review the merchant's submitted declarations below.</p>
+                <p className="text-xs text-gray-400 mt-1">Review & Edit the merchant's submitted declarations below.</p>
             </div>
 
             {answers.map((entry, idx) => (
-                <div key={idx} className="bg-black/30 border border-gray-700 rounded-xl p-6 hover:border-gold-500/30 transition-colors">
-                    <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
-                         <h4 className="text-white font-bold text-lg">{entry.questionnaire_id || "Questionnaire"}</h4>
-                         <span className="text-xs text-gray-500 font-mono">{new Date(entry.timestamp).toLocaleDateString()}</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {Object.entries(entry.answers).map(([qid, val]) => (
-                            <div key={qid} className="p-3 bg-obsidian-900 rounded-lg border border-gray-800">
-                                <p className="text-[10px] text-gold-500/70 uppercase tracking-wider mb-1 font-bold">Question ID: {qid}</p>
-                                <p className="text-sm text-gray-200">{val}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                <EditableAnswerCard 
+                    key={idx} 
+                    entry={entry} 
+                    schema={schemas.find(s => s.id === entry.questionnaire_id)} 
+                    onSave={onSave}
+                />
             ))}
+        </div>
+    );
+};
+
+const EditableAnswerCard = ({ entry, schema, onSave }) => {
+    const [localAnswers, setLocalAnswers] = useState(entry.answers);
+    const [saving, setSaving] = useState(false);
+
+    // If no schema matches (deleted form), we use raw IDs as fallback
+    // Otherwise, we map the answers to the actual form definition
+    const fields = schema ? schema.schema : Object.keys(entry.answers).map(k => ({ id: k, label: `Unknown Question (${k})`, type: 'text' }));
+
+    const handleSave = async () => {
+        setSaving(true);
+        await onSave(entry.response_id, localAnswers);
+        setSaving(false);
+    };
+
+    return (
+        <div className="bg-black/30 border border-gray-700 rounded-xl p-6 hover:border-gold-500/30 transition-colors">
+            <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
+                 <h4 className="text-white font-bold text-lg">{schema ? schema.psp_type : entry.questionnaire_id}</h4>
+                 <span className="text-xs text-gray-500 font-mono">{new Date(entry.timestamp).toLocaleDateString()}</span>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-4 mb-6">
+                {fields.map((field) => (
+                    <div key={field.id} className="p-3 bg-obsidian-900 rounded-lg border border-gray-800">
+                        {/* ⚡ SHOW QUESTION TEXT (LABEL) INSTEAD OF ID */}
+                        <p className="text-xs text-gold-500/70 uppercase tracking-wider mb-2 font-bold">{field.label}</p>
+                        
+                        {field.type === 'mcq' ? (
+                             <select 
+                                value={localAnswers[field.id] || ''} 
+                                onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })}
+                                className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm"
+                             >
+                                <option value="">-- Select --</option>
+                                {field.options && field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                             </select>
+                        ) : (
+                             <input 
+                                type="text"
+                                value={localAnswers[field.id] || ''}
+                                onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })}
+                                className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm"
+                             />
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex justify-end">
+                <button 
+                    onClick={handleSave} 
+                    className="bg-obsidian-700 hover:bg-gold-500 hover:text-black text-gray-300 font-bold py-2 px-6 rounded-lg text-sm transition-all flex items-center gap-2"
+                >
+                    {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Save Section
+                </button>
+            </div>
         </div>
     );
 };
@@ -413,7 +457,6 @@ const EvidenceViewer = ({ file }) => {
     setError(false);
     setImageData(null);
     try {
-      // Call Backend Proxy
       const proxy = await api.getFileProxy(fileId);
       if (proxy.base64) {
         setImageData(`data:${proxy.mimeType};base64,${proxy.base64}`);
