@@ -47,7 +47,7 @@ export const api = {
   // --- OFFICER OPERATIONS ---
   saveOfficer: (data) => api.post('SAVE_OFFICER', data),
   
-  updateOfficer: (data) => api.post('UPDATE_OFFICER', data), // 🆕 Added
+  updateOfficer: (data) => api.post('UPDATE_OFFICER', data),
 
   // --- FILE & AI OPERATIONS ---
   getFolderFiles: (folderId) => api.post('GET_FOLDER_FILES', { folder_id: folderId }),
@@ -84,5 +84,8 @@ export const api = {
   
   getQuestionnaires: () => api.post('GET_QUESTIONNAIRES'),
   
-  saveAnswers: (data) => api.post('SAVE_MERCHANT_ANSWERS', data)
+  saveAnswers: (data) => api.post('SAVE_MERCHANT_ANSWERS', data),
+
+  // 🆕 UPDATE ANSWERS (Admin Edit)
+  updateAnswers: (data) => api.post('UPDATE_MERCHANT_ANSWERS', data)
 };
