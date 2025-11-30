@@ -28,9 +28,9 @@ export const runOCR = async (file, category) => {
     // 🛡️ Graceful Failure (Return empty so app continues with Gemini data)
     console.error("OCR Failed (Worker likely blocked):", error.message);
     return { 
-        source: 'TESSERACT', 
-        data: {}, 
-        error: "Local OCR blocked. Used Server AI only." 
+      source: 'TESSERACT', 
+      data: {}, 
+      error: "Local OCR blocked. Used Server AI only." 
     };
   }
 };
