@@ -188,8 +188,9 @@ function ProfileModal({ merchantId, onClose, onSave }) {
         {/* BODY (Split View) */}
         <div className="flex-1 flex overflow-hidden">
           
-          {/* LEFT: FORM DATA */}
-          <div className="w-1/3 border-r border-gray-700 bg-obsidian-900 overflow-y-auto p-6">
+          {/* LEFT: FORM DATA (CONDITIONAL WIDTH) */}
+          {/* ⚡ LOGIC CHANGE: If Compliance, use full width. Else 1/3 width with right border. */}
+          <div className={`${activeTab === 'COMPLIANCE' ? 'w-full' : 'w-1/3 border-r'} border-gray-700 bg-obsidian-900 overflow-y-auto p-6 transition-all duration-300`}>
             
             {activeTab === 'ENTITY' && (
               <EntityForm 
@@ -239,24 +240,29 @@ function ProfileModal({ merchantId, onClose, onSave }) {
               </div>
             )}
 
-            {/* 🆕 COMPLIANCE TAB */}
+            {/* 🆕 COMPLIANCE TAB (Full Width View) */}
             {activeTab === 'COMPLIANCE' && (
-               <ComplianceViewer answers={data.answers} />
+               <div className="max-w-4xl mx-auto">
+                 <ComplianceViewer answers={data.answers} />
+               </div>
             )}
 
           </div>
 
           {/* RIGHT: EVIDENCE VIEWER (PROXY) */}
-          <div className="w-2/3 bg-black flex flex-col relative">
-             {/* Logic: Show Officer doc if Officer Tab, else Company/Generic doc */}
-             <EvidenceViewer 
-                file={
-                  activeTab === 'OFFICERS' 
-                  ? findRelevantFile(data.officers.find(o => o.officer_id === selectedOfficerId)?.full_name.split(' ')[0]) || files[0]
-                  : findRelevantFile('CERT') || files[0]
-                } 
-             />
-          </div>
+          {/* ⚡ LOGIC CHANGE: Only show if NOT Compliance */}
+          {activeTab !== 'COMPLIANCE' && (
+            <div className="w-2/3 bg-black flex flex-col relative">
+               {/* Logic: Show Officer doc if Officer Tab, else Company/Generic doc */}
+               <EvidenceViewer 
+                  file={
+                    activeTab === 'OFFICERS' 
+                    ? findRelevantFile(data.officers.find(o => o.officer_id === selectedOfficerId)?.full_name.split(' ')[0]) || files[0]
+                    : findRelevantFile('CERT') || files[0]
+                  } 
+               />
+            </div>
+          )}
 
         </div>
       </motion.div>
@@ -287,12 +293,7 @@ const EntityForm = ({ data, onUpdate, onSave }) => {
     // Optimistic Update
     onUpdate({ status: newStatus });
     // Trigger Save
-    await onSave(); // Parent handles API call based on current 'data' state which we just updated? 
-    // Wait, onUpdate updates state, but React state update is async. 
-    // Better to pass the status directly to onSave or handle it carefully.
-    // For this simplistic version, we rely on the user clicking "Save" or we chain it.
-    // Let's modify onSave to not depend solely on state for the trigger if possible, 
-    // but here we updated parent state. Let's do a direct prop update + save.
+    await onSave(); 
     setSaving(false);
   };
 
@@ -307,7 +308,7 @@ const EntityForm = ({ data, onUpdate, onSave }) => {
       
       <div className="pt-6 border-t border-gray-800 flex flex-col gap-3">
         <div className="flex gap-3">
-             {/* 🆕 REJECT BUTTON */}
+             {/* REJECT BUTTON */}
              <button 
                 onClick={() => handleAction('Rejected')} 
                 className="flex-1 bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 py-3 rounded-lg font-bold text-sm transition-all"
@@ -371,17 +372,22 @@ const ComplianceViewer = ({ answers }) => {
 
     return (
         <div className="space-y-6">
+            <div className="bg-obsidian-800/50 p-4 rounded-xl border border-gold-500/20 mb-6">
+                <h3 className="text-gold-400 font-bold flex items-center gap-2"><FileCheck size={20}/> Compliance Overview</h3>
+                <p className="text-xs text-gray-400 mt-1">Review the merchant's submitted declarations below.</p>
+            </div>
+
             {answers.map((entry, idx) => (
-                <div key={idx} className="bg-black/30 border border-gray-700 rounded-xl p-4">
-                    <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
-                         <h4 className="text-gold-400 font-bold text-sm">{entry.questionnaire_id || "Questionnaire"}</h4>
-                         <span className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleDateString()}</span>
+                <div key={idx} className="bg-black/30 border border-gray-700 rounded-xl p-6 hover:border-gold-500/30 transition-colors">
+                    <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
+                         <h4 className="text-white font-bold text-lg">{entry.questionnaire_id || "Questionnaire"}</h4>
+                         <span className="text-xs text-gray-500 font-mono">{new Date(entry.timestamp).toLocaleDateString()}</span>
                     </div>
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {Object.entries(entry.answers).map(([qid, val]) => (
-                            <div key={qid}>
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Question ID: {qid}</p>
-                                <p className="text-sm text-white bg-obsidian-900 p-2 rounded border border-gray-800">{val}</p>
+                            <div key={qid} className="p-3 bg-obsidian-900 rounded-lg border border-gray-800">
+                                <p className="text-[10px] text-gold-500/70 uppercase tracking-wider mb-1 font-bold">Question ID: {qid}</p>
+                                <p className="text-sm text-gray-200">{val}</p>
                             </div>
                         ))}
                     </div>
