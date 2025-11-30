@@ -11,10 +11,11 @@ const MerchantIntake = () => {
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
-  
+    
   const [debugData, setDebugData] = useState(null);
   const [localData, setLocalData] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+
   const [docType, setDocType] = useState("");
 
   const [company, setCompany] = useState({
@@ -124,7 +125,6 @@ const MerchantIntake = () => {
             } : o));
             showToast("Officer ID Verified!", "success");
         }
-
     } catch (err) {
         console.error(err);
         showToast("Analysis Failed: " + err.message, "error");
@@ -163,12 +163,12 @@ const MerchantIntake = () => {
     if (!company.registration_number) missing.push("Registration Number");
     
     if (missing.length > 0) { showToast(`Missing: ${missing.join(', ')}`, "error"); return; }
-
     setLoading(true);
+
     try {
         let filesPayload = company.uploaded_files;
         if ((!filesPayload || filesPayload.length === 0) && company.file_id) filesPayload = [{ id: company.file_id, type: 'LEGACY' }];
-        
+
         const res = await api.initMerchant({ ...company, file_ids: filesPayload });
         if (res && (res.status === 'success' || res.merchant_id)) {
             setCompany(prev => ({ 
@@ -180,7 +180,8 @@ const MerchantIntake = () => {
             setStep(2); 
             showToast("Entity Details Saved", "success");
         }
-    } catch (err) { showToast("Save Failed: " + err.message, "error"); } finally { setLoading(false); }
+    } catch (err) { showToast("Save Failed: " + err.message, "error");
+    } finally { setLoading(false); }
   };
 
   const saveOfficersStep = async () => {
@@ -194,7 +195,8 @@ const MerchantIntake = () => {
         await Promise.all(promises);
         setStep(3); 
         showToast("Officers Saved. Loading Questionnaires...", "success");
-    } catch (err) { showToast("Error: " + err.message, "error"); } finally { setLoading(false); }
+    } catch (err) { showToast("Error: " + err.message, "error");
+    } finally { setLoading(false); }
   };
 
   const submitFinalApplication = async () => {
@@ -211,7 +213,6 @@ const MerchantIntake = () => {
             }
             return Promise.resolve();
         });
-
         await Promise.all(promises);
         if(api.logAudit) await api.logAudit("SUBMIT_APPLICATION", company.merchant_id, `Application Finalized`);
         showToast("Application Submitted Successfully!", "success");
@@ -257,7 +258,7 @@ const MerchantIntake = () => {
       {analyzing && (
         <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 backdrop-blur-sm">
             <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="mb-6 relative">
-                <Cpu size={64} className="text-gold-400 relative z-10" />
+               <Cpu size={64} className="text-gold-400 relative z-10" />
             </motion.div>
             <h2 className="text-2xl font-bold text-white mb-2">AI Extraction...</h2>
             <p className="text-xs text-gray-500">Processing with Gemini AI + Tesseract Regex</p>
@@ -298,7 +299,7 @@ const MerchantIntake = () => {
                         </label>
                     ) : (
                         <div className="h-32 border border-dashed border-gray-700 rounded-xl flex items-center justify-center bg-black/20 text-gray-500">
-                            <span className="text-gray-500">Select doc type to upload</span>
+                           <span className="text-gray-500">Select doc type to upload</span>
                         </div>
                     )}
                 </div>
@@ -343,9 +344,9 @@ const MerchantIntake = () => {
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2 space-y-6">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-semibold text-white">Directors & Shareholders</h2>
-                    <div className="flex gap-4 items-center">
-                         <button onClick={() => setShowDebug(!showDebug)} className="text-xs text-gold-400 border border-gold-500/30 px-3 py-1.5 rounded-full flex items-center gap-2">{showDebug ? <EyeOff size={12}/> : <Eye size={12}/>} Debug</button>
-                         <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: '', dob: '', passport_number: '', doc_type: '', uploaded_files: [] }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"><Plus size={16} /> Add Person</button>
+                    <div className="flex gap-4 items-center"> 
+                        <button onClick={() => setShowDebug(!showDebug)} className="text-xs text-gold-400 border border-gold-500/30 px-3 py-1.5 rounded-full flex items-center gap-2">{showDebug ? <EyeOff size={12}/> : <Eye size={12}/>} Debug</button>
+                        <button onClick={() => setOfficers([...officers, { id: Date.now(), full_name: '', role: '', dob: '', passport_number: '', doc_type: '', uploaded_files: [] }])} className="text-sm bg-obsidian-800 hover:bg-gray-700 px-4 py-2 rounded-lg border border-gray-600 flex items-center gap-2"><Plus size={16} /> Add Person</button>
                     </div>
                 </div>
 
@@ -356,17 +357,20 @@ const MerchantIntake = () => {
                             <div className="p-2 bg-gold-500/10 rounded-lg text-gold-400"><User size={20} /></div>
                             <h3 className="text-lg font-medium text-white">Officer #{index + 1} Profile</h3>
                         </div>
-
+                        
                         <div className="mb-6">
                             <label className="block text-sm text-gray-400 mb-2">Role in Company <span className="text-red-500">*</span></label>
+                            {/* ⚡ UPDATED ROLES */}
                             <select value={officer.role} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, role: e.target.value } : o))} className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-gold-400">
                                 <option value="">-- Select Role --</option>
                                 <option value="UBO">UBO (Ultimate Beneficiary Owner)</option>
                                 <option value="Director">Director</option>
+                                <option value="Shareholder">Shareholder</option>
+                                <option value="Authorized Representative">Authorized Representative</option>
                             </select>
                         </div>
 
-                        {/* ✅ RESTORED OFFICER UPLOAD & AI */}
+                        {/* OFFICER UPLOAD & AI */}
                         <AnimatePresence>
                             {officer.role && (
                                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
@@ -377,7 +381,7 @@ const MerchantIntake = () => {
                                                 <option value="" className="bg-obsidian-900">-- Select Document --</option>
                                                 {getOfficerDocOptions(officer).map(opt => ( <option key={opt.val} value={opt.val} className="bg-obsidian-900">{opt.label}</option> ))}
                                             </select>
-
+                                            
                                             {officer.doc_type && officer.doc_type !== "" ? (
                                                 <label className="flex flex-col items-center justify-center h-32 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:bg-black/20 group">
                                                     <div className="text-center group-hover:scale-105 transition-transform"><Upload className="mx-auto text-gold-400 mb-1" size={20} /><span className="text-xs text-gray-300 font-medium">Click to Upload</span></div>
@@ -401,6 +405,7 @@ const MerchantIntake = () => {
                         </AnimatePresence>
                     </div>
                 ))}
+                
                 <div className="flex justify-end pt-6 border-t border-gray-800">
                     <button onClick={saveOfficersStep} className="bg-gold-gradient text-black font-bold py-3 px-8 rounded-xl flex items-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-105 transition-all">Next: Compliance <ChevronRight size={18} /></button>
                 </div>
@@ -431,7 +436,7 @@ const MerchantIntake = () => {
                     <h2 className="text-2xl font-bold text-white">Compliance Questionnaires</h2>
                 </div>
                 <p className="text-gray-400 mb-8">Please complete the required questionnaires based on your service type.</p>
-
+                
                 {availableForms.length === 0 ? (
                     <div className="text-center py-12 border-2 border-dashed border-gray-700 rounded-xl">
                         <p className="text-gray-500">No questionnaires assigned.</p>
@@ -446,7 +451,6 @@ const MerchantIntake = () => {
                                         <div key={q.id}>
                                             <label className="block text-sm font-medium text-gray-300 mb-2">{q.label}</label>
                                             
-                                            {/* ✅ FIXED TEXT INPUT RENDERING */}
                                             {q.type === 'text' && (
                                                 <input 
                                                     type="text" 
@@ -454,7 +458,7 @@ const MerchantIntake = () => {
                                                     onChange={(e) => handleAnswerChange(form.id, q.id, e.target.value)}
                                                 />
                                             )}
-                                            
+
                                             {q.type === 'mcq' && (
                                                 <select 
                                                     className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:outline-none"
@@ -471,7 +475,7 @@ const MerchantIntake = () => {
                         ))}
                     </div>
                 )}
-
+                
                 <div className="flex justify-end pt-8 mt-8 border-t border-gray-700">
                     <button onClick={submitFinalApplication} className="bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-10 rounded-xl flex items-center gap-2 shadow-lg shadow-green-500/20 hover:scale-105 transition-all">
                         <Save size={20} /> Submit Final Application
@@ -480,7 +484,6 @@ const MerchantIntake = () => {
             </div>
         </motion.div>
       )}
-
     </div>
   );
 };
