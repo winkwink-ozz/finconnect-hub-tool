@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { motion } from 'framer-motion';
-import { Plus, Save, Trash2, CheckSquare, Type, X, Loader2 } from 'lucide-react';
+import { Plus, Save, Trash2, CheckSquare, Type, X, Loader2, Table as TableIcon, Settings } from 'lucide-react';
 import Toast from '../../components/ui/Toast';
 
 const PSP_TYPES = [
@@ -10,7 +10,8 @@ const PSP_TYPES = [
 
 const QUESTION_TYPES = [
   { id: 'text', label: 'Text Field', icon: Type },
-  { id: 'mcq', label: 'Multiple Choice', icon: CheckSquare }
+  { id: 'mcq', label: 'Multiple Choice', icon: CheckSquare },
+  { id: 'table', label: 'Data Table', icon: TableIcon } // 🆕 Added Table
 ];
 
 export default function QuestionnaireBuilder() {
@@ -19,7 +20,7 @@ export default function QuestionnaireBuilder() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // 🔔 New Toast State
+  // 🔔 Toast State
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const showToast = (msg, type = 'success') => {
     setToast({ show: true, message: msg, type });
@@ -34,16 +35,12 @@ export default function QuestionnaireBuilder() {
   const loadExistingQuestionnaire = async (type) => {
     setLoading(true);
     try {
-      // Fetch all active questionnaires
       const allForms = await api.getQuestionnaires();
-      // Find the one for the selected PSP Type
       const existing = allForms.find(f => f.psp_type === type);
-      
       if (existing) {
         setQuestions(existing.schema);
-        // Optional: showToast(`Loaded existing ${type} form`, 'success');
       } else {
-        setQuestions([]); // Clear if none exists
+        setQuestions([]);
       }
     } catch (e) {
       console.error("Load failed", e);
@@ -53,18 +50,23 @@ export default function QuestionnaireBuilder() {
   };
 
   const addQuestion = (type) => {
-    setQuestions([...questions, {
-      id: Date.now(),
-      type,
-      label: '',
-      options: type === 'mcq' ? [''] : []
-    }]);
+    const base = { id: Date.now(), type, label: '' };
+    
+    // 🆕 Specific defaults for different types
+    if (type === 'mcq') base.options = [''];
+    if (type === 'table') {
+        base.columns = ['Column 1', 'Column 2'];
+        base.initialRows = 3;
+    }
+
+    setQuestions([...questions, base]);
   };
 
   const updateQuestion = (id, field, value) => {
     setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
   };
 
+  // --- MCQ Helpers ---
   const addOption = (qId) => {
     setQuestions(questions.map(q =>
       q.id === qId ? { ...q, options: [...q.options, ''] } : q
@@ -85,6 +87,30 @@ export default function QuestionnaireBuilder() {
       if (q.id !== qId) return q;
       const newOpts = q.options.filter((_, i) => i !== index);
       return { ...q, options: newOpts };
+    }));
+  };
+
+  // --- 🆕 Table Helpers ---
+  const addColumn = (qId) => {
+    setQuestions(questions.map(q => 
+        q.id === qId ? { ...q, columns: [...q.columns, `Column ${q.columns.length + 1}`] } : q
+    ));
+  };
+
+  const updateColumn = (qId, index, value) => {
+    setQuestions(questions.map(q => {
+        if (q.id !== qId) return q;
+        const newCols = [...q.columns];
+        newCols[index] = value;
+        return { ...q, columns: newCols };
+    }));
+  };
+
+  const removeColumn = (qId, index) => {
+    setQuestions(questions.map(q => {
+        if (q.id !== qId) return q;
+        const newCols = q.columns.filter((_, i) => i !== index);
+        return { ...q, columns: newCols };
     }));
   };
 
@@ -198,6 +224,7 @@ export default function QuestionnaireBuilder() {
                   />
                 </div>
 
+                {/* --- MCQ EDITOR --- */}
                 {q.type === 'mcq' && (
                   <div className="pl-4 border-l-2 border-gray-700 space-y-2">
                     <label className="block text-xs text-gray-500 mb-2">Answer Options</label>
@@ -219,6 +246,70 @@ export default function QuestionnaireBuilder() {
                     </button>
                   </div>
                 )}
+
+                {/* --- 🆕 TABLE EDITOR --- */}
+                {q.type === 'table' && (
+                  <div className="space-y-4">
+                    <div className="flex gap-4 p-4 bg-obsidian-900 rounded-lg border border-gray-700">
+                        <div className="flex-1">
+                            <label className="block text-xs text-gray-500 mb-2 font-bold uppercase">Table Columns</label>
+                            <div className="space-y-2">
+                                {q.columns.map((col, cIdx) => (
+                                    <div key={cIdx} className="flex items-center gap-2">
+                                        <div className="text-xs text-gray-600 font-mono">Col {cIdx+1}</div>
+                                        <input 
+                                            type="text"
+                                            value={col}
+                                            onChange={(e) => updateColumn(q.id, cIdx, e.target.value)}
+                                            className="flex-1 bg-black/40 border border-gray-600 rounded p-1.5 text-sm text-white focus:border-gold-400 outline-none"
+                                        />
+                                        <button onClick={() => removeColumn(q.id, cIdx)} className="text-gray-600 hover:text-red-400"><X size={14}/></button>
+                                    </div>
+                                ))}
+                                <button onClick={() => addColumn(q.id)} className="text-xs text-gold-400 hover:text-white flex items-center gap-1 mt-2">
+                                    <Plus size={12}/> Add Column
+                                </button>
+                            </div>
+                        </div>
+                        <div className="w-1/3 border-l border-gray-700 pl-4">
+                            <label className="block text-xs text-gray-500 mb-2 font-bold uppercase">Default Rows</label>
+                            <input 
+                                type="number"
+                                min="1"
+                                value={q.initialRows}
+                                onChange={(e) => updateQuestion(q.id, 'initialRows', parseInt(e.target.value))}
+                                className="w-full bg-black/40 border border-gray-600 rounded p-2 text-white focus:border-gold-400 outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    {/* LIVE PREVIEW OF TABLE */}
+                    <div className="border border-gray-700 rounded-lg overflow-hidden opacity-70 cursor-not-allowed">
+                        <div className="bg-gray-800 px-4 py-2 border-b border-gray-700 text-xs font-bold text-gray-400 flex gap-2">
+                            <Settings size={12}/> PREVIEW MODE
+                        </div>
+                        <table className="w-full text-left text-sm text-gray-400">
+                            <thead className="bg-black/40 text-gray-500 uppercase text-xs">
+                                <tr>
+                                    {q.columns.map((c, i) => <th key={i} className="px-4 py-2">{c || `Col ${i+1}`}</th>)}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {[...Array(q.initialRows)].map((_, r) => (
+                                    <tr key={r} className="border-b border-gray-800/50">
+                                        {q.columns.map((c, i) => (
+                                            <td key={i} className="px-4 py-2">
+                                                <div className="h-8 bg-black/20 rounded border border-gray-800"></div>
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                  </div>
+                )}
+
               </motion.div>
             ))}
           </div>
