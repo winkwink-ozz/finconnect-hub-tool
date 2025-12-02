@@ -105,7 +105,6 @@ function ProfileModal({ merchantId, onClose, onSave }) {
       setData(details);
       
       // 2. 🆕 Get Questionnaires (for Mapping IDs to Questions)
-      // We fetch this so we can show "What is your volume?" instead of "Q-12345"
       const allSchemas = await api.getQuestionnaires();
       setSchemas(allSchemas);
 
@@ -245,7 +244,7 @@ function ProfileModal({ merchantId, onClose, onSave }) {
               </div>
             )}
 
-            {/* 🆕 COMPLIANCE TAB (Fully Editable Form) */}
+            {/* 🆕 COMPLIANCE TAB (Fully Editable Form with Table Support) */}
             {activeTab === 'COMPLIANCE' && (
                <div className="max-w-4xl mx-auto">
                  <ComplianceViewer 
@@ -386,13 +385,19 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
     const [saving, setSaving] = useState(false);
 
     // If no schema matches (deleted form), we use raw IDs as fallback
-    // Otherwise, we map the answers to the actual form definition
     const fields = schema ? schema.schema : Object.keys(entry.answers).map(k => ({ id: k, label: `Unknown Question (${k})`, type: 'text' }));
 
     const handleSave = async () => {
         setSaving(true);
         await onSave(entry.response_id, localAnswers);
         setSaving(false);
+    };
+
+    const handleTableEdit = (qId, rowIndex, colName, value) => {
+        const currentTable = [...(localAnswers[qId] || [])];
+        if(!currentTable[rowIndex]) currentTable[rowIndex] = {};
+        currentTable[rowIndex] = { ...currentTable[rowIndex], [colName]: value };
+        setLocalAnswers({ ...localAnswers, [qId]: currentTable });
     };
 
     return (
@@ -405,10 +410,9 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
             <div className="grid grid-cols-1 gap-4 mb-6">
                 {fields.map((field) => (
                     <div key={field.id} className="p-3 bg-obsidian-900 rounded-lg border border-gray-800">
-                        {/* ⚡ SHOW QUESTION TEXT (LABEL) INSTEAD OF ID */}
                         <p className="text-xs text-gold-500/70 uppercase tracking-wider mb-2 font-bold">{field.label}</p>
                         
-                        {field.type === 'mcq' ? (
+                        {field.type === 'mcq' && (
                              <select 
                                 value={localAnswers[field.id] || ''} 
                                 onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })}
@@ -417,13 +421,44 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
                                 <option value="">-- Select --</option>
                                 {field.options && field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                              </select>
-                        ) : (
+                        )}
+
+                        {field.type === 'text' && (
                              <input 
                                 type="text"
                                 value={localAnswers[field.id] || ''}
                                 onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })}
                                 className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm"
                              />
+                        )}
+
+                        {/* 🆕 ADMIN TABLE EDITOR */}
+                        {field.type === 'table' && (
+                            <div className="overflow-x-auto border border-gray-700 rounded bg-black/20">
+                                <table className="w-full text-left text-sm">
+                                    <thead>
+                                        <tr className="bg-gray-800/50 text-gray-400 text-xs">
+                                            {field.columns.map((c, i) => <th key={i} className="p-2 border-b border-gray-700">{c}</th>)}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(localAnswers[field.id] || []).map((row, rIdx) => (
+                                            <tr key={rIdx} className="border-b border-gray-800">
+                                                {field.columns.map((col, cIdx) => (
+                                                    <td key={cIdx} className="p-1">
+                                                        <input 
+                                                            type="text"
+                                                            value={row[col] || ''}
+                                                            onChange={(e) => handleTableEdit(field.id, rIdx, col, e.target.value)}
+                                                            className="w-full bg-transparent border-none focus:ring-1 focus:ring-gold-400 rounded px-1 py-1 text-white"
+                                                        />
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </div>
                 ))}
