@@ -54,6 +54,22 @@ const MerchantIntake = () => {
     try {
         const forms = await api.getQuestionnaires();
         setAvailableForms(forms);
+        // Initialize table answers
+        const initAnswers = {};
+        forms.forEach(form => {
+            if(!initAnswers[form.id]) initAnswers[form.id] = {};
+            form.schema.forEach(q => {
+                if(q.type === 'table') {
+                    // Create default empty rows based on config
+                    initAnswers[form.id][q.id] = Array(q.initialRows).fill({}).map(() => {
+                        const rowObj = {};
+                        q.columns.forEach(col => rowObj[col] = "");
+                        return rowObj;
+                    });
+                }
+            });
+        });
+        setAnswers(initAnswers);
     } catch (e) {
         showToast("Failed to load questionnaires", "error");
     } finally {
@@ -61,6 +77,7 @@ const MerchantIntake = () => {
     }
   };
 
+  // ⚡ Updated to handle deep table updates
   const handleAnswerChange = (questionnaireId, questionId, value) => {
     setAnswers(prev => ({
         ...prev,
@@ -69,6 +86,31 @@ const MerchantIntake = () => {
             [questionId]: value
         }
     }));
+  };
+
+  const handleTableChange = (questionnaireId, qId, rowIndex, colName, value) => {
+    const currentTable = [...(answers[questionnaireId]?.[qId] || [])];
+    if(!currentTable[rowIndex]) currentTable[rowIndex] = {};
+    
+    currentTable[rowIndex] = {
+        ...currentTable[rowIndex],
+        [colName]: value
+    };
+    
+    handleAnswerChange(questionnaireId, qId, currentTable);
+  };
+
+  const addTableRow = (formId, qId, columns) => {
+    const currentTable = [...(answers[formId]?.[qId] || [])];
+    const newRow = {};
+    columns.forEach(c => newRow[c] = "");
+    handleAnswerChange(formId, qId, [...currentTable, newRow]);
+  };
+
+  const removeTableRow = (formId, qId, rowIndex) => {
+    const currentTable = [...(answers[formId]?.[qId] || [])];
+    currentTable.splice(rowIndex, 1);
+    handleAnswerChange(formId, qId, currentTable);
   };
 
   const handleAnalysis = async (file, category, context, officerId = null) => {
@@ -267,7 +309,7 @@ const MerchantIntake = () => {
 
       {loading && !analyzing && <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"><Loader2 className="w-12 h-12 animate-spin text-gold-400" /></div>}
 
-      {/* STEP 1: ENTITY */}
+      {/* STEP 1 & 2 KEPT SAME (Collapsed in View, code matches input) */}
       {step === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 space-y-8">
@@ -338,7 +380,6 @@ const MerchantIntake = () => {
         </div>
       )}
 
-      {/* STEP 2: OFFICERS */}
       {step === 2 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2 space-y-6">
@@ -360,7 +401,6 @@ const MerchantIntake = () => {
                         
                         <div className="mb-6">
                             <label className="block text-sm text-gray-400 mb-2">Role in Company <span className="text-red-500">*</span></label>
-                            {/* ⚡ UPDATED ROLES */}
                             <select value={officer.role} onChange={e => setOfficers(officers.map(o => o.id === officer.id ? { ...o, role: e.target.value } : o))} className="w-full bg-obsidian-900 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-gold-400">
                                 <option value="">-- Select Role --</option>
                                 <option value="UBO">UBO (Ultimate Beneficiary Owner)</option>
@@ -411,7 +451,6 @@ const MerchantIntake = () => {
                 </div>
             </motion.div>
             
-            {/* DEBUG PANEL FOR STEP 2 */}
             <AnimatePresence>
                 {showDebug && (
                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="lg:col-span-1">
@@ -467,6 +506,47 @@ const MerchantIntake = () => {
                                                     <option value="">Select Option</option>
                                                     {q.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                                 </select>
+                                            )}
+
+                                            {/* 🆕 TABLE RENDERER */}
+                                            {q.type === 'table' && (
+                                                <div className="overflow-x-auto rounded-lg border border-gray-700">
+                                                    <table className="w-full text-left border-collapse">
+                                                        <thead>
+                                                            <tr className="bg-black/40 text-gray-400 text-xs uppercase">
+                                                                {q.columns.map((col, idx) => (
+                                                                    <th key={idx} className="p-3 border-b border-gray-700">{col}</th>
+                                                                ))}
+                                                                <th className="p-3 border-b border-gray-700 w-10"></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {(answers[form.id]?.[q.id] || []).map((row, rIdx) => (
+                                                                <tr key={rIdx} className="border-b border-gray-800/50 hover:bg-white/5">
+                                                                    {q.columns.map((col, cIdx) => (
+                                                                        <td key={cIdx} className="p-2">
+                                                                            <input 
+                                                                                type="text"
+                                                                                value={row[col] || ''}
+                                                                                onChange={(e) => handleTableChange(form.id, q.id, rIdx, col, e.target.value)}
+                                                                                className="w-full bg-transparent border-b border-gray-700 focus:border-gold-400 outline-none text-sm text-white py-1"
+                                                                            />
+                                                                        </td>
+                                                                    ))}
+                                                                    <td className="p-2 text-center">
+                                                                        <button onClick={() => removeTableRow(form.id, q.id, rIdx)} className="text-gray-600 hover:text-red-400"><Trash2 size={14}/></button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                    <button 
+                                                        onClick={() => addTableRow(form.id, q.id, q.columns)}
+                                                        className="w-full py-2 text-xs text-gold-400 hover:bg-gold-500/10 flex items-center justify-center gap-1"
+                                                    >
+                                                        <Plus size={14}/> Add Row
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                     ))}
