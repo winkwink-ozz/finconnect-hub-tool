@@ -1,14 +1,14 @@
 // === START FILE: src/pages/admin/Profiles.jsx ===
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // ✅ Added useRef
 import { api } from '../../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Eye, AlertCircle, ExternalLink, User, Building, Loader2, Save, FileCheck, AlertTriangle } from 'lucide-react';
+import { X, Check, Eye, AlertCircle, ExternalLink, User, Building, Loader2, Save, FileCheck, AlertTriangle, ScanLine } from 'lucide-react'; // ✅ Added ScanLine
 import Toast from '../../components/ui/Toast';
-import Skeleton from '../../components/ui/Skeleton'; // ✅ NEW IMPORT
+import Skeleton from '../../components/ui/Skeleton';
 
 export default function Profiles() {
   const [merchants, setMerchants] = useState([]);
-  const [selectedMerchantId, setSelectedMerchantId] = useState(null);
+  const [selectedMerchant, setSelectedMerchant] = useState(null); // ✅ Changed to store full object (for folder_id)
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,7 +30,6 @@ export default function Profiles() {
     <div className="p-6 min-h-screen bg-obsidian-900 text-white font-sans">
       <div className="flex justify-between items-center mb-8">
         <div>
-           {/* TITLE */}
            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gold-gradient">Client Profiles</h1>
            <p className="text-gray-400 mt-1">Verify Entity, Officer & Compliance Data</p>
         </div>
@@ -41,10 +40,8 @@ export default function Profiles() {
         )}
       </div>
       
-      {/* QUEUE LIST */}
       <div className="space-y-3">
         {loading ? (
-           // ✅ SKELETON LOADING STATE (Professional Look)
            [1,2,3].map(i => (
              <div key={i} className="bg-obsidian-800 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
                 <div className="flex items-center gap-4">
@@ -76,7 +73,7 @@ export default function Profiles() {
                 </div>
               </div>
               <button 
-                onClick={() => setSelectedMerchantId(m.merchant_id)}
+                onClick={() => setSelectedMerchant(m)} // ✅ Pass full object
                 className="bg-black/40 text-gray-300 hover:text-gold-400 hover:bg-gold-500/10 px-5 py-2 rounded-lg border border-gray-700 hover:border-gold-500/50 flex items-center gap-2 transition-all"
               >
                 <Eye size={16} /> Review
@@ -86,13 +83,12 @@ export default function Profiles() {
         )}
       </div>
 
-      {/* MODAL */}
       <AnimatePresence>
-        {selectedMerchantId && (
+        {selectedMerchant && (
           <ProfileModal 
-            merchantId={selectedMerchantId} 
-            onClose={() => setSelectedMerchantId(null)} 
-            onSave={() => { setSelectedMerchantId(null); loadMerchants(); }} 
+            merchant={selectedMerchant} // ✅ Pass full object
+            onClose={() => setSelectedMerchant(null)} 
+            onSave={() => { setSelectedMerchant(null); loadMerchants(); }} 
           />
         )}
       </AnimatePresence>
@@ -101,39 +97,52 @@ export default function Profiles() {
 }
 
 // --- MAIN MODAL COMPONENT ---
-function ProfileModal({ merchantId, onClose, onSave }) {
-  const [data, setData] = useState(null); // Full Data
-  const [schemas, setSchemas] = useState([]); // Questionnaires
-  const [files, setFiles] = useState([]); // File List
+function ProfileModal({ merchant, onClose, onSave }) {
+  const [data, setData] = useState(null);
+  const [schemas, setSchemas] = useState([]);
+  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingFiles, setLoadingFiles] = useState(true); // ✅ Separate file loading state
   const [activeTab, setActiveTab] = useState('ENTITY');
   const [selectedOfficerId, setSelectedOfficerId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  
+  // ✅ CACHE REF: Persist images between tab switches
+  const imageCache = useRef({}); 
 
-  // Load Full Details on Open
   useEffect(() => {
     loadDetails();
-  }, [merchantId]);
+  }, [merchant.merchant_id]);
 
   const loadDetails = async () => {
     setLoading(true);
+    setLoadingFiles(true);
     try {
-      // 🚀 PARALLEL FETCHING (100% Speed Boost)
-      // We fire Merchant Data + Questionnaires simultaneously
-      const [details, allSchemas] = await Promise.all([
-         api.getMerchantFull(merchantId),
+      // 🚀 PARALLEL FETCHING: Fire EVERYTHING at once
+      // We use the folder_id from the list view to start fetching files immediately
+      const promises = [
+         api.getMerchantFull(merchant.merchant_id),
          api.getQuestionnaires()
-      ]);
+      ];
+
+      // If we know the folder ID, fetch files now (don't wait for profile)
+      if (merchant.folder_id) {
+        promises.push(api.getFolderFiles(merchant.folder_id));
+      } else {
+        promises.push(Promise.resolve([]));
+      }
+
+      const [details, allSchemas, driveFiles] = await Promise.all(promises);
 
       setData(details);
       setSchemas(allSchemas);
-
-      // Fetch Files only if folder exists (Non-blocking UI update could be done here too)
-      if (details.company && details.company.folder_id) {
-        api.getFolderFiles(details.company.folder_id).then(driveFiles => setFiles(driveFiles));
+      setFiles(driveFiles || []);
+      
+      // Fallback: If list didn't have folder_id but detail did (rare sync issue)
+      if (!merchant.folder_id && details.company.folder_id) {
+         api.getFolderFiles(details.company.folder_id).then(f => setFiles(f));
       }
       
-      // Select first officer default
       if (details.officers && details.officers.length > 0) {
         setSelectedOfficerId(details.officers[0].officer_id);
       }
@@ -143,6 +152,7 @@ function ProfileModal({ merchantId, onClose, onSave }) {
       showToast("Failed to load profile data", "error");
     } finally {
       setLoading(false);
+      setLoadingFiles(false);
     }
   };
 
@@ -156,13 +166,12 @@ function ProfileModal({ merchantId, onClose, onSave }) {
     return files.find(f => f.name.toLowerCase().includes(keyword.toLowerCase()));
   };
 
-  // ✅ SKELETON LOADING FOR MODAL
   if (loading || !data) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-6">
        <div className="bg-obsidian-800 w-full max-w-7xl h-[90vh] rounded-2xl border border-gray-700 flex flex-col shadow-2xl p-6 space-y-6">
           <div className="flex justify-between">
-             <Skeleton className="h-8 w-64" /> {/* Title */}
-             <Skeleton className="h-8 w-32" /> {/* Status */}
+             <Skeleton className="h-8 w-64" />
+             <Skeleton className="h-8 w-32" />
           </div>
           <div className="flex gap-4 border-b border-gray-700 pb-4">
              <Skeleton className="h-10 w-24" />
@@ -170,8 +179,8 @@ function ProfileModal({ merchantId, onClose, onSave }) {
              <Skeleton className="h-10 w-24" />
           </div>
           <div className="flex-1 flex gap-6">
-             <Skeleton className="w-1/3 h-full rounded-xl" /> {/* Form */}
-             <Skeleton className="w-2/3 h-full rounded-xl" /> {/* Viewer */}
+             <Skeleton className="w-1/3 h-full rounded-xl" />
+             <Skeleton className="w-2/3 h-full rounded-xl" />
           </div>
        </div>
     </div>
@@ -187,7 +196,6 @@ function ProfileModal({ merchantId, onClose, onSave }) {
         exit={{ opacity: 0, scale: 0.95 }}
         className="bg-obsidian-800 w-full max-w-7xl h-[90vh] rounded-2xl border border-gray-700 flex flex-col shadow-2xl overflow-hidden relative"
       >
-        {/* HEADER */}
         <div className="h-16 border-b border-gray-700 flex items-center justify-between px-6 bg-obsidian-900">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-white">{data.company.company_name}</h2>
@@ -200,36 +208,16 @@ function ProfileModal({ merchantId, onClose, onSave }) {
           </div>
           
           <div className="flex items-center gap-2">
-            <TabButton 
-              active={activeTab === 'ENTITY'} 
-              onClick={() => setActiveTab('ENTITY')} 
-              icon={Building} 
-              label="Entity" 
-            />
-            <TabButton 
-              active={activeTab === 'OFFICERS'} 
-              onClick={() => setActiveTab('OFFICERS')} 
-              icon={User} 
-              label={`Officers (${data.officers.length})`} 
-            />
-            <TabButton 
-              active={activeTab === 'COMPLIANCE'} 
-              onClick={() => setActiveTab('COMPLIANCE')} 
-              icon={FileCheck} 
-              label="Compliance" 
-            />
-
+            <TabButton active={activeTab === 'ENTITY'} onClick={() => setActiveTab('ENTITY')} icon={Building} label="Entity" />
+            <TabButton active={activeTab === 'OFFICERS'} onClick={() => setActiveTab('OFFICERS')} icon={User} label={`Officers (${data.officers.length})`} />
+            <TabButton active={activeTab === 'COMPLIANCE'} onClick={() => setActiveTab('COMPLIANCE')} icon={FileCheck} label="Compliance" />
             <div className="w-px h-6 bg-gray-700 mx-2"></div>
             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-700 text-gray-400 hover:text-white"><X size={20} /></button>
           </div>
         </div>
 
-        {/* BODY (Split View) */}
         <div className="flex-1 flex overflow-hidden">
-          
-          {/* LEFT: FORM DATA */}
           <div className={`${activeTab === 'COMPLIANCE' ? 'w-full' : 'w-1/3 border-r'} border-gray-700 bg-obsidian-900 overflow-y-auto p-6 transition-all duration-300`}>
-            
             {activeTab === 'ENTITY' && (
               <EntityForm 
                 data={data.company} 
@@ -246,7 +234,6 @@ function ProfileModal({ merchantId, onClose, onSave }) {
 
             {activeTab === 'OFFICERS' && (
               <div className="space-y-6">
-                {/* Officer Selector */}
                 <div className="flex gap-2 overflow-x-auto pb-2 border-b border-gray-800">
                   {data.officers.map(off => (
                     <button
@@ -258,8 +245,6 @@ function ProfileModal({ merchantId, onClose, onSave }) {
                     </button>
                   ))}
                 </div>
-                
-                {/* Officer Form */}
                 {selectedOfficerId && (
                   <OfficerForm 
                     data={data.officers.find(o => o.officer_id === selectedOfficerId)} 
@@ -278,7 +263,6 @@ function ProfileModal({ merchantId, onClose, onSave }) {
               </div>
             )}
 
-            {/* COMPLIANCE TAB */}
             {activeTab === 'COMPLIANCE' && (
                <div className="max-w-4xl mx-auto">
                  <ComplianceViewer 
@@ -293,10 +277,8 @@ function ProfileModal({ merchantId, onClose, onSave }) {
                  />
                </div>
             )}
-
           </div>
 
-          {/* RIGHT: EVIDENCE VIEWER */}
           {activeTab !== 'COMPLIANCE' && (
             <div className="w-2/3 bg-black flex flex-col relative">
                <EvidenceViewer 
@@ -304,222 +286,51 @@ function ProfileModal({ merchantId, onClose, onSave }) {
                    activeTab === 'OFFICERS' 
                    ? findRelevantFile(data.officers.find(o => o.officer_id === selectedOfficerId)?.full_name.split(' ')[0]) || files[0]
                    : findRelevantFile('CERT') || files[0]
-                 } 
+                 }
+                 loadingFiles={loadingFiles} // ✅ Pass file loading state
+                 cache={imageCache} // ✅ Pass cache ref
                />
             </div>
           )}
-
         </div>
       </motion.div>
     </div>
   );
 }
 
-// --- SUB-COMPONENTS (Same as before, simplified for brevity but fully functional) ---
-
-const TabButton = ({ active, onClick, icon: Icon, label }) => (
-  <button 
-    onClick={onClick}
-    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
-      active 
-        ? 'bg-gold-gradient text-black shadow-lg shadow-gold-500/20' 
-        : 'text-gray-400 hover:text-white hover:bg-white/5'
-    }`}
-  >
-    <Icon size={16} /> {label}
-  </button>
-);
-
-const EntityForm = ({ data, onUpdate, onSave }) => {
-  const [saving, setSaving] = useState(false);
-  
-  const handleAction = async (newStatus) => {
-    setSaving(true);
-    onUpdate({ status: newStatus });
-    await onSave(); 
-    setSaving(false);
-  };
-
-  return (
-    <div className="space-y-5">
-      <h3 className="text-gold-400 text-sm font-bold uppercase tracking-widest mb-4">Corporate Details</h3>
-      <Field label="Company Name" value={data.company_name} onChange={v => onUpdate({ company_name: v })} />
-      <Field label="Registration No" value={data.registration_number} onChange={v => onUpdate({ registration_number: v })} />
-      <Field label="Inc Date" value={data.incorporation_date} onChange={v => onUpdate({ incorporation_date: v })} />
-      <Field label="Country" value={data.country} onChange={v => onUpdate({ country: v })} />
-      <Field label="Address" value={data.registered_address} onChange={v => onUpdate({ registered_address: v })} type="textarea" />
-      
-      <div className="pt-6 border-t border-gray-800 flex flex-col gap-3">
-        <div className="flex gap-3">
-             <button onClick={() => handleAction('Rejected')} className="flex-1 bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 py-3 rounded-lg font-bold text-sm transition-all">Reject Entity</button>
-             <button onClick={() => handleAction('Approved')} className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-sm text-white shadow-lg shadow-green-500/20 transition-all">Approve Entity</button>
-        </div>
-        <button onClick={() => handleAction(data.status)} className="w-full bg-obsidian-700 border border-gray-600 rounded-lg py-2 text-xs text-gray-400 hover:text-white flex items-center justify-center gap-2"><Save size={14}/> Save Changes Only</button>
-      </div>
-    </div>
-  );
-};
-
-const OfficerForm = ({ data, onUpdate, onSave }) => {
-  const [saving, setSaving] = useState(false);
-  if (!data) return <div className="text-gray-500">Select an officer</div>;
-
-  return (
-    <div className="space-y-5">
-      <h3 className="text-gold-400 text-sm font-bold uppercase tracking-widest mb-4">Officer KYC</h3>
-      <Field label="Full Name" value={data.full_name} onChange={v => onUpdate({ full_name: v })} />
-      <Field label="Role" value={data.role} onChange={v => onUpdate({ role: v })} />
-      <Field label="Passport / ID" value={data.passport_number} onChange={v => onUpdate({ passport_number: v })} />
-      <Field label="Date of Birth" value={data.dob} onChange={v => onUpdate({ dob: v })} />
-      <Field label="Address" value={data.residential_address} onChange={v => onUpdate({ residential_address: v })} type="textarea" />
-
-      <div className="pt-6 border-t border-gray-800">
-        <button 
-          onClick={async () => { setSaving(true); await onSave(data); setSaving(false); }} 
-          className="w-full bg-gold-gradient text-black font-bold py-3 rounded-lg flex justify-center gap-2 items-center hover:scale-[1.02] transition-transform"
-        >
-          {saving ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Save Officer Changes
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const ComplianceViewer = ({ answers, schemas, onSave }) => {
-    if (!answers || answers.length === 0) return (
-        <div className="flex flex-col items-center justify-center h-64 text-gray-500 border border-dashed border-gray-700 rounded-xl">
-            <AlertTriangle size={32} className="mb-2 opacity-50"/>
-            <p>No Compliance Data Found</p>
-        </div>
-    );
-
-    return (
-        <div className="space-y-6">
-            <div className="bg-obsidian-800/50 p-4 rounded-xl border border-gold-500/20 mb-6">
-                <h3 className="text-gold-400 font-bold flex items-center gap-2"><FileCheck size={20}/> Compliance Overview</h3>
-                <p className="text-xs text-gray-400 mt-1">Review & Edit the merchant's submitted declarations below.</p>
-            </div>
-            {answers.map((entry, idx) => (
-                <EditableAnswerCard 
-                    key={idx} 
-                    entry={entry} 
-                    schema={schemas.find(s => s.id === entry.questionnaire_id)} 
-                    onSave={onSave}
-                />
-            ))}
-        </div>
-    );
-};
-
-const EditableAnswerCard = ({ entry, schema, onSave }) => {
-    const [localAnswers, setLocalAnswers] = useState(entry.answers);
-    const [saving, setSaving] = useState(false);
-    const fields = schema ? schema.schema : Object.keys(entry.answers).map(k => ({ id: k, label: `Unknown Question (${k})`, type: 'text' }));
-
-    const handleSave = async () => {
-        setSaving(true);
-        await onSave(entry.response_id, localAnswers);
-        setSaving(false);
-    };
-
-    const handleTableEdit = (qId, rowIndex, colName, value) => {
-        const currentTable = [...(localAnswers[qId] || [])];
-        if(!currentTable[rowIndex]) currentTable[rowIndex] = {};
-        currentTable[rowIndex] = { ...currentTable[rowIndex], [colName]: value };
-        setLocalAnswers({ ...localAnswers, [qId]: currentTable });
-    };
-
-    return (
-        <div className="bg-black/30 border border-gray-700 rounded-xl p-6 hover:border-gold-500/30 transition-colors">
-            <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
-                 <h4 className="text-white font-bold text-lg">{schema ? schema.psp_type : entry.questionnaire_id}</h4>
-                 <span className="text-xs text-gray-500 font-mono">{new Date(entry.timestamp).toLocaleDateString()}</span>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-4 mb-6">
-                {fields.map((field) => (
-                    <div key={field.id} className="p-3 bg-obsidian-900 rounded-lg border border-gray-800">
-                        <p className="text-xs text-gold-500/70 uppercase tracking-wider mb-2 font-bold">{field.label}</p>
-                        
-                        {field.type === 'mcq' && (
-                             <select 
-                                value={localAnswers[field.id] || ''} 
-                                onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })}
-                                className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm"
-                             >
-                                <option value="">-- Select --</option>
-                                {field.options && field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                             </select>
-                        )}
-                        {field.type === 'text' && (
-                             <input 
-                                type="text"
-                                value={localAnswers[field.id] || ''}
-                                onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })}
-                                className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm"
-                             />
-                        )}
-                        {field.type === 'table' && (
-                            <div className="overflow-x-auto border border-gray-700 rounded bg-black/20">
-                                <table className="w-full text-left text-sm">
-                                    <thead>
-                                        <tr className="bg-gray-800/50 text-gray-400 text-xs">
-                                            {field.columns.map((c, i) => <th key={i} className="p-2 border-b border-gray-700">{c}</th>)}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {(localAnswers[field.id] || []).map((row, rIdx) => (
-                                            <tr key={rIdx} className="border-b border-gray-800">
-                                                {field.columns.map((col, cIdx) => (
-                                                    <td key={cIdx} className="p-1">
-                                                        <input 
-                                                            type="text"
-                                                            value={row[col] || ''}
-                                                            onChange={(e) => handleTableEdit(field.id, rIdx, col, e.target.value)}
-                                                            className="w-full bg-transparent border-none focus:ring-1 focus:ring-gold-400 rounded px-1 py-1 text-white"
-                                                        />
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex justify-end">
-                <button 
-                    onClick={handleSave} 
-                    className="bg-obsidian-700 hover:bg-gold-500 hover:text-black text-gray-300 font-bold py-2 px-6 rounded-lg text-sm transition-all flex items-center gap-2"
-                >
-                    {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Save Section
-                </button>
-            </div>
-        </div>
-    );
-};
-
-const EvidenceViewer = ({ file }) => {
+// --- UPDATED EVIDENCE VIEWER (With Cache & Skeleton) ---
+const EvidenceViewer = ({ file, loadingFiles, cache }) => {
   const [imageData, setImageData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (file) loadProxyImage(file.id);
-    else setImageData(null);
+    if (file) {
+      loadProxyImage(file.id);
+    } else {
+      setImageData(null);
+    }
   }, [file]);
 
   const loadProxyImage = async (fileId) => {
-    setLoading(true); 
     setError(false);
+    
+    // 1. CHECK CACHE FIRST (Instant Load)
+    if (cache.current[fileId]) {
+        setImageData(cache.current[fileId]);
+        setLoading(false);
+        return;
+    }
+
+    // 2. FETCH FROM API
+    setLoading(true);
     setImageData(null);
     try {
       const proxy = await api.getFileProxy(fileId);
       if (proxy.base64) {
-        setImageData(`data:${proxy.mimeType};base64,${proxy.base64}`);
+        const src = `data:${proxy.mimeType};base64,${proxy.base64}`;
+        cache.current[fileId] = src; // ✅ Save to cache
+        setImageData(src);
       } else {
         setError(true);
       }
@@ -531,20 +342,38 @@ const EvidenceViewer = ({ file }) => {
     }
   };
 
-  if (!file) return <div className="h-full flex flex-col items-center justify-center text-gray-500"><AlertCircle size={32} className="mb-2 opacity-50"/>No Document Found</div>;
+  // ✅ HANDLING THE "NO DOCUMENT FOUND" FLASH
+  if (!file) {
+      if (loadingFiles) {
+          return (
+            <div className="h-full flex flex-col items-center justify-center space-y-4">
+                <Skeleton className="w-16 h-16 rounded-xl" />
+                <div className="flex items-center gap-2 text-gold-400 text-xs animate-pulse">
+                    <ScanLine size={14} /> Scanning Repository...
+                </div>
+            </div>
+          );
+      }
+      return (
+        <div className="h-full flex flex-col items-center justify-center text-gray-500">
+            <AlertCircle size={32} className="mb-2 opacity-50"/>
+            No Document Found
+        </div>
+      );
+  }
 
   return (
     <div className="h-full flex flex-col bg-black">
       <div className="bg-obsidian-800 py-2 px-4 text-xs text-gray-400 border-b border-gray-700 flex justify-between">
-        <span>{file.name}</span>
+        <span className="flex items-center gap-2"><FileCheck size={12} className="text-gold-400"/> {file.name}</span>
         <a href={file.url} target="_blank" rel="noreferrer" className="text-gold-400 hover:text-white flex gap-1 items-center"><ExternalLink size={12}/> Drive</a>
       </div>
       
       <div className="flex-1 overflow-auto flex items-center justify-center p-4">
         {loading && (
              <div className="flex flex-col items-center gap-2 text-gold-400">
-                <Skeleton className="w-16 h-16 rounded-lg" /> 
-                <span className="text-xs">Decrypting Stream...</span>
+                <Skeleton className="w-64 h-96 rounded-lg opacity-20" /> 
+                <span className="text-xs absolute mt-40 flex items-center gap-2"><Loader2 className="animate-spin" size={14}/> Decrypting Secure Stream...</span>
              </div>
         )}
         
@@ -563,22 +392,134 @@ const EvidenceViewer = ({ file }) => {
   );
 };
 
+// --- REST OF SUB-COMPONENTS (Unchanged) ---
+const TabButton = ({ active, onClick, icon: Icon, label }) => (
+  <button 
+    onClick={onClick}
+    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
+      active ? 'bg-gold-gradient text-black shadow-lg shadow-gold-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'
+    }`}
+  >
+    <Icon size={16} /> {label}
+  </button>
+);
+
+const EntityForm = ({ data, onUpdate, onSave }) => (
+  <div className="space-y-5">
+    <h3 className="text-gold-400 text-sm font-bold uppercase tracking-widest mb-4">Corporate Details</h3>
+    <Field label="Company Name" value={data.company_name} onChange={v => onUpdate({ company_name: v })} />
+    <Field label="Registration No" value={data.registration_number} onChange={v => onUpdate({ registration_number: v })} />
+    <Field label="Inc Date" value={data.incorporation_date} onChange={v => onUpdate({ incorporation_date: v })} />
+    <Field label="Country" value={data.country} onChange={v => onUpdate({ country: v })} />
+    <Field label="Address" value={data.registered_address} onChange={v => onUpdate({ registered_address: v })} type="textarea" />
+    <div className="pt-6 border-t border-gray-800 flex flex-col gap-3">
+      <div className="flex gap-3">
+           <button onClick={() => { onUpdate({ status: 'Rejected' }); onSave(); }} className="flex-1 bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 py-3 rounded-lg font-bold text-sm transition-all">Reject Entity</button>
+           <button onClick={() => { onUpdate({ status: 'Approved' }); onSave(); }} className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-sm text-white shadow-lg shadow-green-500/20 transition-all">Approve Entity</button>
+      </div>
+      <button onClick={onSave} className="w-full bg-obsidian-700 border border-gray-600 rounded-lg py-2 text-xs text-gray-400 hover:text-white flex items-center justify-center gap-2"><Save size={14}/> Save Changes Only</button>
+    </div>
+  </div>
+);
+
+const OfficerForm = ({ data, onUpdate, onSave }) => {
+  const [saving, setSaving] = useState(false);
+  if (!data) return <div className="text-gray-500">Select an officer</div>;
+  return (
+    <div className="space-y-5">
+      <h3 className="text-gold-400 text-sm font-bold uppercase tracking-widest mb-4">Officer KYC</h3>
+      <Field label="Full Name" value={data.full_name} onChange={v => onUpdate({ full_name: v })} />
+      <Field label="Role" value={data.role} onChange={v => onUpdate({ role: v })} />
+      <Field label="Passport / ID" value={data.passport_number} onChange={v => onUpdate({ passport_number: v })} />
+      <Field label="Date of Birth" value={data.dob} onChange={v => onUpdate({ dob: v })} />
+      <Field label="Address" value={data.residential_address} onChange={v => onUpdate({ residential_address: v })} type="textarea" />
+      <div className="pt-6 border-t border-gray-800">
+        <button onClick={async () => { setSaving(true); await onSave(data); setSaving(false); }} className="w-full bg-gold-gradient text-black font-bold py-3 rounded-lg flex justify-center gap-2 items-center hover:scale-[1.02] transition-transform">
+          {saving ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Save Officer Changes
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const ComplianceViewer = ({ answers, schemas, onSave }) => {
+    if (!answers || answers.length === 0) return (
+        <div className="flex flex-col items-center justify-center h-64 text-gray-500 border border-dashed border-gray-700 rounded-xl">
+            <AlertTriangle size={32} className="mb-2 opacity-50"/>
+            <p>No Compliance Data Found</p>
+        </div>
+    );
+    return (
+        <div className="space-y-6">
+            <div className="bg-obsidian-800/50 p-4 rounded-xl border border-gold-500/20 mb-6">
+                <h3 className="text-gold-400 font-bold flex items-center gap-2"><FileCheck size={20}/> Compliance Overview</h3>
+                <p className="text-xs text-gray-400 mt-1">Review & Edit the merchant's submitted declarations below.</p>
+            </div>
+            {answers.map((entry, idx) => (
+                <EditableAnswerCard key={idx} entry={entry} schema={schemas.find(s => s.id === entry.questionnaire_id)} onSave={onSave}/>
+            ))}
+        </div>
+    );
+};
+
+const EditableAnswerCard = ({ entry, schema, onSave }) => {
+    const [localAnswers, setLocalAnswers] = useState(entry.answers);
+    const [saving, setSaving] = useState(false);
+    const fields = schema ? schema.schema : Object.keys(entry.answers).map(k => ({ id: k, label: `Unknown Question (${k})`, type: 'text' }));
+    const handleSave = async () => { setSaving(true); await onSave(entry.response_id, localAnswers); setSaving(false); };
+    const handleTableEdit = (qId, rowIndex, colName, value) => {
+        const currentTable = [...(localAnswers[qId] || [])];
+        if(!currentTable[rowIndex]) currentTable[rowIndex] = {};
+        currentTable[rowIndex] = { ...currentTable[rowIndex], [colName]: value };
+        setLocalAnswers({ ...localAnswers, [qId]: currentTable });
+    };
+
+    return (
+        <div className="bg-black/30 border border-gray-700 rounded-xl p-6 hover:border-gold-500/30 transition-colors">
+            <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
+                 <h4 className="text-white font-bold text-lg">{schema ? schema.psp_type : entry.questionnaire_id}</h4>
+                 <span className="text-xs text-gray-500 font-mono">{new Date(entry.timestamp).toLocaleDateString()}</span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 mb-6">
+                {fields.map((field) => (
+                    <div key={field.id} className="p-3 bg-obsidian-900 rounded-lg border border-gray-800">
+                        <p className="text-xs text-gold-500/70 uppercase tracking-wider mb-2 font-bold">{field.label}</p>
+                        {field.type === 'mcq' && (
+                             <select value={localAnswers[field.id] || ''} onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })} className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm">
+                                <option value="">-- Select --</option>
+                                {field.options && field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                             </select>
+                        )}
+                        {field.type === 'text' && (
+                             <input type="text" value={localAnswers[field.id] || ''} onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })} className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm" />
+                        )}
+                        {field.type === 'table' && (
+                            <div className="overflow-x-auto border border-gray-700 rounded bg-black/20">
+                                <table className="w-full text-left text-sm">
+                                    <thead><tr className="bg-gray-800/50 text-gray-400 text-xs">{field.columns.map((c, i) => <th key={i} className="p-2 border-b border-gray-700">{c}</th>)}</tr></thead>
+                                    <tbody>{(localAnswers[field.id] || []).map((row, rIdx) => (<tr key={rIdx} className="border-b border-gray-800">{field.columns.map((col, cIdx) => (<td key={cIdx} className="p-1"><input type="text" value={row[col] || ''} onChange={(e) => handleTableEdit(field.id, rIdx, col, e.target.value)} className="w-full bg-transparent border-none focus:ring-1 focus:ring-gold-400 rounded px-1 py-1 text-white"/></td>))}</tr>))}</tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+            <div className="flex justify-end">
+                <button onClick={handleSave} className="bg-obsidian-700 hover:bg-gold-500 hover:text-black text-gray-300 font-bold py-2 px-6 rounded-lg text-sm transition-all flex items-center gap-2">
+                    {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Save Section
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const Field = ({ label, value, onChange, type = "text" }) => (
   <div>
     <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">{label}</label>
     {type === "textarea" ? (
-      <textarea 
-        value={value || ''} 
-        onChange={e => onChange(e.target.value)} 
-        className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white text-sm focus:border-gold-400 focus:outline-none h-24 resize-none"
-      />
+      <textarea value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white text-sm focus:border-gold-400 focus:outline-none h-24 resize-none" />
     ) : (
-      <input 
-        type="text" 
-        value={value || ''} 
-        onChange={e => onChange(e.target.value)} 
-        className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white text-sm focus:border-gold-400 focus:outline-none"
-      />
+      <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white text-sm focus:border-gold-400 focus:outline-none" />
     )}
   </div>
 );
