@@ -1,14 +1,14 @@
 // === START FILE: src/pages/admin/Profiles.jsx ===
-import React, { useState, useEffect, useRef } from 'react'; // ✅ Added useRef
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Eye, AlertCircle, ExternalLink, User, Building, Loader2, Save, FileCheck, AlertTriangle, ScanLine } from 'lucide-react'; // ✅ Added ScanLine
+import { X, Check, Eye, AlertCircle, ExternalLink, User, Building, Loader2, Save, FileCheck, AlertTriangle, ScanLine } from 'lucide-react';
 import Toast from '../../components/ui/Toast';
 import Skeleton from '../../components/ui/Skeleton';
 
 export default function Profiles() {
   const [merchants, setMerchants] = useState([]);
-  const [selectedMerchant, setSelectedMerchant] = useState(null); // ✅ Changed to store full object (for folder_id)
+  const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function Profiles() {
                 </div>
               </div>
               <button 
-                onClick={() => setSelectedMerchant(m)} // ✅ Pass full object
+                onClick={() => setSelectedMerchant(m)} 
                 className="bg-black/40 text-gray-300 hover:text-gold-400 hover:bg-gold-500/10 px-5 py-2 rounded-lg border border-gray-700 hover:border-gold-500/50 flex items-center gap-2 transition-all"
               >
                 <Eye size={16} /> Review
@@ -86,7 +86,7 @@ export default function Profiles() {
       <AnimatePresence>
         {selectedMerchant && (
           <ProfileModal 
-            merchant={selectedMerchant} // ✅ Pass full object
+            merchant={selectedMerchant}
             onClose={() => setSelectedMerchant(null)} 
             onSave={() => { setSelectedMerchant(null); loadMerchants(); }} 
           />
@@ -102,12 +102,10 @@ function ProfileModal({ merchant, onClose, onSave }) {
   const [schemas, setSchemas] = useState([]);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingFiles, setLoadingFiles] = useState(true); // ✅ Separate file loading state
+  const [loadingFiles, setLoadingFiles] = useState(true);
   const [activeTab, setActiveTab] = useState('ENTITY');
   const [selectedOfficerId, setSelectedOfficerId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  
-  // ✅ CACHE REF: Persist images between tab switches
   const imageCache = useRef({}); 
 
   useEffect(() => {
@@ -118,14 +116,11 @@ function ProfileModal({ merchant, onClose, onSave }) {
     setLoading(true);
     setLoadingFiles(true);
     try {
-      // 🚀 PARALLEL FETCHING: Fire EVERYTHING at once
-      // We use the folder_id from the list view to start fetching files immediately
       const promises = [
          api.getMerchantFull(merchant.merchant_id),
          api.getQuestionnaires()
       ];
 
-      // If we know the folder ID, fetch files now (don't wait for profile)
       if (merchant.folder_id) {
         promises.push(api.getFolderFiles(merchant.folder_id));
       } else {
@@ -138,7 +133,6 @@ function ProfileModal({ merchant, onClose, onSave }) {
       setSchemas(allSchemas);
       setFiles(driveFiles || []);
       
-      // Fallback: If list didn't have folder_id but detail did (rare sync issue)
       if (!merchant.folder_id && details.company.folder_id) {
          api.getFolderFiles(details.company.folder_id).then(f => setFiles(f));
       }
@@ -287,8 +281,8 @@ function ProfileModal({ merchant, onClose, onSave }) {
                    ? findRelevantFile(data.officers.find(o => o.officer_id === selectedOfficerId)?.full_name.split(' ')[0]) || files[0]
                    : findRelevantFile('CERT') || files[0]
                  }
-                 loadingFiles={loadingFiles} // ✅ Pass file loading state
-                 cache={imageCache} // ✅ Pass cache ref
+                 loadingFiles={loadingFiles}
+                 cache={imageCache}
                />
             </div>
           )}
@@ -298,7 +292,7 @@ function ProfileModal({ merchant, onClose, onSave }) {
   );
 }
 
-// --- UPDATED EVIDENCE VIEWER (With Cache & Skeleton) ---
+// --- UPDATED EVIDENCE VIEWER ---
 const EvidenceViewer = ({ file, loadingFiles, cache }) => {
   const [imageData, setImageData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -314,22 +308,18 @@ const EvidenceViewer = ({ file, loadingFiles, cache }) => {
 
   const loadProxyImage = async (fileId) => {
     setError(false);
-    
-    // 1. CHECK CACHE FIRST (Instant Load)
     if (cache.current[fileId]) {
         setImageData(cache.current[fileId]);
         setLoading(false);
         return;
     }
-
-    // 2. FETCH FROM API
     setLoading(true);
     setImageData(null);
     try {
       const proxy = await api.getFileProxy(fileId);
       if (proxy.base64) {
         const src = `data:${proxy.mimeType};base64,${proxy.base64}`;
-        cache.current[fileId] = src; // ✅ Save to cache
+        cache.current[fileId] = src;
         setImageData(src);
       } else {
         setError(true);
@@ -342,7 +332,6 @@ const EvidenceViewer = ({ file, loadingFiles, cache }) => {
     }
   };
 
-  // ✅ HANDLING THE "NO DOCUMENT FOUND" FLASH
   if (!file) {
       if (loadingFiles) {
           return (
@@ -392,7 +381,7 @@ const EvidenceViewer = ({ file, loadingFiles, cache }) => {
   );
 };
 
-// --- REST OF SUB-COMPONENTS (Unchanged) ---
+// --- SUB-COMPONENTS ---
 const TabButton = ({ active, onClick, icon: Icon, label }) => (
   <button 
     onClick={onClick}
@@ -462,10 +451,30 @@ const ComplianceViewer = ({ answers, schemas, onSave }) => {
     );
 };
 
+// ✅ UPGRADED CARD TO HANDLE LEGACY DATA
 const EditableAnswerCard = ({ entry, schema, onSave }) => {
     const [localAnswers, setLocalAnswers] = useState(entry.answers);
     const [saving, setSaving] = useState(false);
-    const fields = schema ? schema.schema : Object.keys(entry.answers).map(k => ({ id: k, label: `Unknown Question (${k})`, type: 'text' }));
+
+    // 🧠 INTELLIGENT FIELD MAPPING
+    // If schema exists, use it. If not, try to deduce fields from answers.
+    const fields = schema 
+        ? schema.schema 
+        : Object.keys(entry.answers).map(k => {
+            // Check if this answer is a table (array)
+            const val = entry.answers[k];
+            if (Array.isArray(val)) {
+                return { 
+                    id: k, 
+                    label: `Unknown Question (${k})`, 
+                    type: 'table', 
+                    // Try to guess columns from the first row of data
+                    columns: val.length > 0 ? Object.keys(val[0]) : ['Column 1'] 
+                };
+            }
+            return { id: k, label: `Unknown Question (${k})`, type: 'text' };
+        });
+
     const handleSave = async () => { setSaving(true); await onSave(entry.response_id, localAnswers); setSaving(false); };
     const handleTableEdit = (qId, rowIndex, colName, value) => {
         const currentTable = [...(localAnswers[qId] || [])];
@@ -475,36 +484,64 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
     };
 
     return (
-        <div className="bg-black/30 border border-gray-700 rounded-xl p-6 hover:border-gold-500/30 transition-colors">
-            <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
-                 <h4 className="text-white font-bold text-lg">{schema ? schema.psp_type : entry.questionnaire_id}</h4>
-                 <span className="text-xs text-gray-500 font-mono">{new Date(entry.timestamp).toLocaleDateString()}</span>
+        <div className="bg-black/30 border border-gray-700 rounded-xl overflow-hidden hover:border-gold-500/30 transition-colors">
+            {/* ✅ GOLD GRADIENT HEADER */}
+            <div className="bg-gold-gradient p-4 flex justify-between items-center">
+                 <h4 className="text-black font-bold text-lg">{schema ? schema.psp_type : entry.questionnaire_id}</h4>
+                 <span className="text-xs text-black/70 font-mono font-bold">{new Date(entry.timestamp).toLocaleDateString()}</span>
             </div>
-            <div className="grid grid-cols-1 gap-4 mb-6">
+            
+            <div className="p-6 grid grid-cols-1 gap-6">
                 {fields.map((field) => (
-                    <div key={field.id} className="p-3 bg-obsidian-900 rounded-lg border border-gray-800">
-                        <p className="text-xs text-gold-500/70 uppercase tracking-wider mb-2 font-bold">{field.label}</p>
+                    <div key={field.id} className="p-4 bg-obsidian-900 rounded-xl border border-gray-800">
+                        <p className="text-xs text-gold-500/70 uppercase tracking-wider mb-3 font-bold">{field.label}</p>
+                        
+                        {/* MCQ */}
                         {field.type === 'mcq' && (
-                             <select value={localAnswers[field.id] || ''} onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })} className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm">
+                             <select value={localAnswers[field.id] || ''} onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })} className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:outline-none text-sm">
                                 <option value="">-- Select --</option>
                                 {field.options && field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                              </select>
                         )}
+
+                        {/* TEXT */}
                         {field.type === 'text' && (
-                             <input type="text" value={localAnswers[field.id] || ''} onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })} className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-400 focus:outline-none text-sm" />
+                             <input type="text" value={localAnswers[field.id] || ''} onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })} className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:outline-none text-sm" />
                         )}
+
+                        {/* TABLE (Handles Arrays Correctly) */}
                         {field.type === 'table' && (
-                            <div className="overflow-x-auto border border-gray-700 rounded bg-black/20">
+                            <div className="overflow-x-auto border border-gray-700 rounded-lg bg-black/20">
                                 <table className="w-full text-left text-sm">
-                                    <thead><tr className="bg-gray-800/50 text-gray-400 text-xs">{field.columns.map((c, i) => <th key={i} className="p-2 border-b border-gray-700">{c}</th>)}</tr></thead>
-                                    <tbody>{(localAnswers[field.id] || []).map((row, rIdx) => (<tr key={rIdx} className="border-b border-gray-800">{field.columns.map((col, cIdx) => (<td key={cIdx} className="p-1"><input type="text" value={row[col] || ''} onChange={(e) => handleTableEdit(field.id, rIdx, col, e.target.value)} className="w-full bg-transparent border-none focus:ring-1 focus:ring-gold-400 rounded px-1 py-1 text-white"/></td>))}</tr>))}</tbody>
+                                    <thead>
+                                        <tr className="bg-gray-800/50 text-gray-400 text-xs">
+                                            {field.columns.map((c, i) => <th key={i} className="p-3 border-b border-gray-700">{c}</th>)}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(localAnswers[field.id] || []).map((row, rIdx) => (
+                                            <tr key={rIdx} className="border-b border-gray-800 last:border-0">
+                                                {field.columns.map((col, cIdx) => (
+                                                    <td key={cIdx} className="p-1">
+                                                        <input 
+                                                            type="text" 
+                                                            value={row[col] || ''} 
+                                                            onChange={(e) => handleTableEdit(field.id, rIdx, col, e.target.value)} 
+                                                            className="w-full bg-transparent border-none focus:ring-1 focus:ring-gold-400 rounded px-2 py-1.5 text-white placeholder-gray-700"
+                                                            placeholder="-"
+                                                        />
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
                                 </table>
                             </div>
                         )}
                     </div>
                 ))}
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end p-4 border-t border-gray-800 bg-black/20">
                 <button onClick={handleSave} className="bg-obsidian-700 hover:bg-gold-500 hover:text-black text-gray-300 font-bold py-2 px-6 rounded-lg text-sm transition-all flex items-center gap-2">
                     {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Save Section
                 </button>
