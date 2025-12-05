@@ -456,19 +456,36 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
     const [localAnswers, setLocalAnswers] = useState(entry.answers);
     const [saving, setSaving] = useState(false);
 
-    // 🧠 INTELLIGENT FIELD MAPPING
-    // If schema exists, use it. If not, try to deduce fields from answers.
+    // 🧠 INTELLIGENT FIELD MAPPING (Fixes Issue 2: Data Loss on Column Change)
     const fields = schema 
-        ? schema.schema 
+        ? schema.schema.map(field => {
+            // For Tables: Check if the answer data uses columns that match the schema
+            // If there's a total mismatch (Legacy Data), we must override the columns
+            if (field.type === 'table') {
+                const answerRows = localAnswers[field.id] || [];
+                if (answerRows.length > 0) {
+                    const dataKeys = Object.keys(answerRows[0]);
+                    // Check if current schema columns are found in the data
+                    const isSchemaMatch = field.columns.some(col => dataKeys.includes(col));
+                    
+                    // If NO match, it means the Admin changed column names. 
+                    // We must render the table using the OLD keys found in the data, 
+                    // otherwise the cells will be blank.
+                    if (!isSchemaMatch) {
+                        return { ...field, columns: dataKeys, label: `${field.label} (Legacy Format)` };
+                    }
+                }
+            }
+            return field;
+        })
         : Object.keys(entry.answers).map(k => {
-            // Check if this answer is a table (array)
+            // Fallback for totally unknown questions (Deleted Forms)
             const val = entry.answers[k];
             if (Array.isArray(val)) {
                 return { 
                     id: k, 
                     label: `Unknown Question (${k})`, 
                     type: 'table', 
-                    // Try to guess columns from the first row of data
                     columns: val.length > 0 ? Object.keys(val[0]) : ['Column 1'] 
                 };
             }
@@ -496,7 +513,6 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
                     <div key={field.id} className="p-4 bg-obsidian-900 rounded-xl border border-gray-800">
                         <p className="text-xs text-gold-500/70 uppercase tracking-wider mb-3 font-bold">{field.label}</p>
                         
-                        {/* MCQ */}
                         {field.type === 'mcq' && (
                              <select value={localAnswers[field.id] || ''} onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })} className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:outline-none text-sm">
                                 <option value="">-- Select --</option>
@@ -504,17 +520,15 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
                              </select>
                         )}
 
-                        {/* TEXT */}
                         {field.type === 'text' && (
                              <input type="text" value={localAnswers[field.id] || ''} onChange={(e) => setLocalAnswers({ ...localAnswers, [field.id]: e.target.value })} className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-400 focus:outline-none text-sm" />
                         )}
 
-                        {/* TABLE (Handles Arrays Correctly) */}
                         {field.type === 'table' && (
                             <div className="overflow-x-auto border border-gray-700 rounded-lg bg-black/20">
                                 <table className="w-full text-left text-sm">
                                     <thead>
-                                        <tr className="bg-gray-800/50 text-gray-400 text-xs">
+                                        <tr className="bg-gray-800/50 text-gray-400 text-xs uppercase">
                                             {field.columns.map((c, i) => <th key={i} className="p-3 border-b border-gray-700">{c}</th>)}
                                         </tr>
                                     </thead>
@@ -541,8 +555,10 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
                     </div>
                 ))}
             </div>
+            
+            {/* ✅ FIXED: SAVE BUTTON NOW HAS GOLD GRADIENT (Fixes Issue 1) */}
             <div className="flex justify-end p-4 border-t border-gray-800 bg-black/20">
-                <button onClick={handleSave} className="bg-obsidian-700 hover:bg-gold-500 hover:text-black text-gray-300 font-bold py-2 px-6 rounded-lg text-sm transition-all flex items-center gap-2">
+                <button onClick={handleSave} className="bg-gold-gradient text-black font-bold py-2 px-6 rounded-lg text-sm transition-all flex items-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-105">
                     {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Save Section
                 </button>
             </div>
