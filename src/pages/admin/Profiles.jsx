@@ -451,46 +451,49 @@ const ComplianceViewer = ({ answers, schemas, onSave }) => {
     );
 };
 
-// ✅ UPGRADED CARD TO HANDLE LEGACY DATA
+// ✅ UPGRADED CARD: DATA-FIRST RENDERING PROTOCOL
 const EditableAnswerCard = ({ entry, schema, onSave }) => {
     const [localAnswers, setLocalAnswers] = useState(entry.answers);
     const [saving, setSaving] = useState(false);
 
-    // 🧠 INTELLIGENT FIELD MAPPING (Fixes Issue 2: Data Loss on Column Change)
-    const fields = schema 
-        ? schema.schema.map(field => {
-            // For Tables: Check if the answer data uses columns that match the schema
-            // If there's a total mismatch (Legacy Data), we must override the columns
-            if (field.type === 'table') {
-                const answerRows = localAnswers[field.id] || [];
-                if (answerRows.length > 0) {
-                    const dataKeys = Object.keys(answerRows[0]);
-                    // Check if current schema columns are found in the data
-                    const isSchemaMatch = field.columns.some(col => dataKeys.includes(col));
-                    
-                    // If NO match, it means the Admin changed column names. 
-                    // We must render the table using the OLD keys found in the data, 
-                    // otherwise the cells will be blank.
-                    if (!isSchemaMatch) {
-                        return { ...field, columns: dataKeys, label: `${field.label} (Legacy Format)` };
-                    }
-                }
+    // 🚀 PROTOCOL UPDATE:
+    // We map over Object.keys(entry.answers) to ensure EVERY ANSWER in the DB is shown.
+    // If we mapped over schema.schema, we would miss old questions that were deleted from the builder.
+    const allQuestionIds = Object.keys(entry.answers);
+
+    // Sort or organize questions if needed, here we just take them as they are in the DB
+    const fields = allQuestionIds.map(qId => {
+        // 1. Try to find the definition in the current schema
+        const schemaDef = schema?.schema?.find(q => q.id.toString() === qId.toString());
+        
+        // 2. If found, use its label/type. If NOT found (Legacy), use a fallback.
+        if (schemaDef) {
+            // Check for Table Column Mismatch (as fixed previously)
+            if (schemaDef.type === 'table') {
+                 const answerRows = localAnswers[qId] || [];
+                 if (answerRows.length > 0) {
+                     const dataKeys = Object.keys(answerRows[0]);
+                     const isSchemaMatch = schemaDef.columns.some(col => dataKeys.includes(col));
+                     if (!isSchemaMatch) {
+                         return { ...schemaDef, columns: dataKeys, label: `${schemaDef.label} (Legacy Format)` };
+                     }
+                 }
             }
-            return field;
-        })
-        : Object.keys(entry.answers).map(k => {
-            // Fallback for totally unknown questions (Deleted Forms)
-            const val = entry.answers[k];
-            if (Array.isArray(val)) {
-                return { 
-                    id: k, 
-                    label: `Unknown Question (${k})`, 
-                    type: 'table', 
-                    columns: val.length > 0 ? Object.keys(val[0]) : ['Column 1'] 
-                };
-            }
-            return { id: k, label: `Unknown Question (${k})`, type: 'text' };
-        });
+            return schemaDef;
+        }
+
+        // 3. Fallback for Data that has no Schema definition (Deleted Questions)
+        const val = entry.answers[qId];
+        if (Array.isArray(val)) {
+            return { 
+                id: qId, 
+                label: `Legacy Question (ID: ${qId})`, 
+                type: 'table', 
+                columns: val.length > 0 ? Object.keys(val[0]) : ['Column 1'] 
+            };
+        }
+        return { id: qId, label: `Legacy Question (ID: ${qId})`, type: 'text' };
+    });
 
     const handleSave = async () => { setSaving(true); await onSave(entry.response_id, localAnswers); setSaving(false); };
     const handleTableEdit = (qId, rowIndex, colName, value) => {
@@ -502,7 +505,6 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
 
     return (
         <div className="bg-black/30 border border-gray-700 rounded-xl overflow-hidden hover:border-gold-500/30 transition-colors">
-            {/* ✅ GOLD GRADIENT HEADER */}
             <div className="bg-gold-gradient p-4 flex justify-between items-center">
                  <h4 className="text-black font-bold text-lg">{schema ? schema.psp_type : entry.questionnaire_id}</h4>
                  <span className="text-xs text-black/70 font-mono font-bold">{new Date(entry.timestamp).toLocaleDateString()}</span>
@@ -556,7 +558,6 @@ const EditableAnswerCard = ({ entry, schema, onSave }) => {
                 ))}
             </div>
             
-            {/* ✅ FIXED: SAVE BUTTON NOW HAS GOLD GRADIENT (Fixes Issue 1) */}
             <div className="flex justify-end p-4 border-t border-gray-800 bg-black/20">
                 <button onClick={handleSave} className="bg-gold-gradient text-black font-bold py-2 px-6 rounded-lg text-sm transition-all flex items-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-105">
                     {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Save Section
